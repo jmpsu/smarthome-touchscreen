@@ -7,21 +7,38 @@ and the next event shows as a "sky tonight" line.
 
 ## How it works
 
-- **Meteor showers are computed** (`dashboard/backend/celestial.py`) from their
-  well-known annual peaks — Quadrantids, Lyrids, Eta/Delta Aquariids, Perseids,
-  Orionids, Leonids, Geminids, Ursids. Because these recur every year, there is
-  almost always something within the coming month, for any year, with no
-  per-year data to go stale. Events are ranked by significance (peak rate) and
-  soonest peak; the top 1–2 become slides.
+- **Precise astronomical events are computed** (`dashboard/backend/astro.py`)
+  with the [Astronomy Engine](https://github.com/cosinekitty/astronomy) library
+  from your latitude/longitude — so the calendar finds the genuinely newsworthy
+  events, not a canned list:
+  - planetary **conjunctions** (e.g. Venus–Jupiter close approaches),
+  - planet **oppositions** (Mars/Jupiter/Saturn/Uranus/Neptune),
+  - greatest **elongations** of Mercury & Venus,
+  - **full / new moons** (with supermoon detection; new moon = darkest skies for
+    the Milky Way and deep-sky work),
+  - lunar & solar **eclipses**.
+
+  For each, it also computes *where to look* — the constellation plus compass
+  direction and altitude at the best moment of the night **at your location**.
+  This is all derived from coordinates, so it's correct for any home and any
+  year. (If coordinates aren't set, this layer is skipped.)
+- **Meteor showers are also computed** (`celestial.py`) from their well-known
+  annual peaks — Quadrantids, Lyrids, Eta/Delta Aquariids, Perseids, Orionids,
+  Leonids, Geminids, Ursids — so there's almost always something upcoming even
+  with no coordinates.
+- Everything is merged and ranked by significance and soonest peak. The **top
+  few become rotating slides**; the **homepage calendar lists them all** (next
+  ~45 days) with peak-date dots.
 - Each slide shows the **date range leading to the peak**, a **concise
   description**, **where to look** (anchored to a common constellation +
   direction), and the **best viewing time** — e.g. *"Perseids · Jul 29 – Aug 15
   (peak Aug 12) · Look northeast toward Perseus · Best: after midnight until
   dawn."* Tap a slide for the full detail card.
 - Behind the text, the UI draws a **themed starfield** matched to the event type
-  (meteor streaks, galaxy glow, planet disk, moon, eclipse), so a slide is
-  visually striking even offline. Supply a real photo per event with `image_url`
-  (see below) and it renders behind the text, with the starfield as fallback.
+  (meteor streaks, galaxy glow, planet disk, moon, eclipse). Computed planet and
+  moon events also carry a **best-effort real photo** (NASA/Wikimedia); if a URL
+  is unavailable the starfield shows instead, so a slide is never blank. Supply
+  or override any event's photo with `image_url` (see below).
 
 ## Adding one-off events (alignments, eclipses, galaxies, comets)
 

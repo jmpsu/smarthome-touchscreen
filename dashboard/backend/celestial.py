@@ -22,9 +22,11 @@ Selection ranks by significance and soonest peak, then keeps the top 1–2.
 from __future__ import annotations
 
 import datetime as dt
+import os
 from dataclasses import dataclass, field
 from typing import Any
 
+from . import astro
 from . import store
 
 
@@ -118,12 +120,44 @@ def _shower_instance(s: Shower, year: int) -> dict[str, Any]:
     }
 
 
-def _all_instances(today: dt.date) -> list[dict[str, Any]]:
-    """Every shower instance for this year and next (to span the Dec→Jan gap)."""
+def _timezone():
+    tzname = os.getenv("TIMEZONE", "").strip()
+    if not tzname:
+        return None
+    try:
+        from zoneinfo import ZoneInfo
+        return ZoneInfo(tzname)
+    except Exception:
+        return None
+
+
+def _coords() -> tuple[float | None, float | None]:
+    def num(k):
+        v = (os.getenv(k, "") or "").strip()
+        try:
+            f = float(v)
+            return f
+        except Exception:
+            return None
+    return num("LATITUDE"), num("LONGITUDE")
+
+
+def _all_instances(today: dt.date, window_days: int = 45) -> list[dict[str, Any]]:
+    """Meteor showers (computed) + astronomically-computed events (from the
+    user's coordinates via Astronomy Engine) + user-added one-off events."""
     out: list[dict[str, Any]] = []
     for yr in (today.year, today.year + 1):
         for s in SHOWERS:
             out.append(_shower_instance(s, yr))
+
+    # precisely-computed events (conjunctions, oppositions, eclipses, phases…)
+    lat, lon = _coords()
+    if lat is not None and lon is not None:
+        try:
+            out.extend(astro.compute_events(today, lat, lon, window_days, _timezone()))
+        except Exception:
+            pass
+
     # user-added one-off events (explicit dates; never fabricated by us)
     for ev in store.load("celestial_events", []):
         ev = dict(ev)
@@ -140,13 +174,13 @@ def _all_instances(today: dt.date) -> list[dict[str, Any]]:
 
 
 def upcoming(today: dt.date | None = None, window_days: int = 30,
-             limit: int = 2) -> dict[str, Any]:
-    """Curated slides for events peaking within `window_days`, plus a light
-    calendar list of peaks for the homepage mini-calendar."""
+             limit: int = 3) -> dict[str, Any]:
+    """Curated slides for events peaking within `window_days`, plus a full
+    calendar list of all notable peaks (~45 days) for the homepage calendar."""
     today = today or dt.date.today()
     horizon = today + dt.timedelta(days=window_days)
 
-    instances = _all_instances(today)
+    instances = _all_instances(today, window_days=45)
 
     # slides: events whose active window is open now OR whose peak is within the
     # horizon, and not already well past.
