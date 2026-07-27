@@ -14,7 +14,11 @@
     );
     if (name === "settings") Settings.load();
     if (name === "displays") renderFullDisplays();
+    if (name === "launcher" && window.Launcher) Launcher.load();
+    if (name === "home-map" && window.Floorplan) Floorplan.load();
   }
+  // expose so launcher tiles / floorplan can navigate
+  window.App = { showScreen };
 
   document.querySelectorAll(".nav-btn").forEach((btn) =>
     btn.addEventListener("click", () => showScreen(btn.dataset.screen))
@@ -123,6 +127,7 @@
     setInterval(tick, 1000);
 
     Rotating.init(CONFIG);
+    if (window.Launcher) Launcher.load();
     HA.connect();
 
     // keep the kiosk awake — nudge the browser so the screen never blanks

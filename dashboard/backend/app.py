@@ -20,7 +20,9 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import rooms as rooms_store
+from . import store
 from . import tides
+from . import voice as voice_mod
 from .ha_client import HAClient
 
 BASE = Path(__file__).resolve().parent.parent
@@ -142,6 +144,82 @@ async def delete_room(payload: dict):
 async def assign_room(payload: dict):
     """Assign an entity (light/switch/camera) to a room, or clear it (room=null)."""
     return rooms_store.assign(payload.get("entity_id", ""), payload.get("room"))
+
+
+# --------------------------------------------------------------------------- #
+# Launcher apps + floor plan (user-editable, generic defaults)
+# --------------------------------------------------------------------------- #
+@app.get("/api/apps")
+async def get_apps():
+    return store.load("apps", store.DEFAULT_APPS)
+
+
+@app.post("/api/apps")
+async def save_apps(payload: dict):
+    store.save("apps", payload)
+    return {"ok": True}
+
+
+@app.get("/api/floorplan")
+async def get_floorplan():
+    return store.load("floorplan", store.DEFAULT_FLOORPLAN)
+
+
+@app.post("/api/floorplan")
+async def save_floorplan(payload: dict):
+    store.save("floorplan", payload)
+    return {"ok": True}
+
+
+# --------------------------------------------------------------------------- #
+# Voice command (called by an Apple Shortcut / Siri automation)
+# --------------------------------------------------------------------------- #
+async def _lights_snapshot() -> list[voice_mod.Light]:
+    """Build the Light list the parser needs from HA + room assignments."""
+    assignments = rooms_store.load().get("assignments", {})
+    lights: list[voice_mod.Light] = []
+    try:
+        states = await ha.states()
+    except Exception:
+        states = []
+    for s in states:
+        if not s["entity_id"].startswith("light."):
+            continue
+        attrs = s.get("attributes", {})
+        modes = attrs.get("supported_color_modes", []) or []
+        room = assignments.get(s["entity_id"]) or attrs.get("room") or attrs.get("area") or ""
+        lights.append(voice_mod.Light(
+            entity_id=s["entity_id"],
+            name=attrs.get("friendly_name", s["entity_id"].split(".")[1]),
+            room=room,
+            supports_color=any(m in modes for m in ("rgb", "rgbw", "rgbww", "hs", "xy")),
+            supports_temp="color_temp" in modes,
+        ))
+    return lights
+
+
+@app.post("/api/voice/command")
+async def voice_command(payload: dict):
+    """Parse a spoken phrase and execute it. Returns a spoken confirmation.
+
+    Body: {"text": "dim the kitchen lights by 99%"}
+    An Apple Shortcut posts the dictated text here and speaks back `spoken`.
+    """
+    text = payload.get("text", "")
+    lights = await _lights_snapshot()
+    plan = voice_mod.parse(text, lights)
+    if payload.get("dry_run"):
+        return {"spoken": plan.spoken, "understood": plan.understood,
+                "matched": plan.matched, "calls": plan.calls}
+    for call in plan.calls:
+        try:
+            await ha.call_service(call["domain"], call["service"], call["data"])
+        except Exception as e:
+            return JSONResponse(
+                {"spoken": "Something went wrong reaching the lights.",
+                 "error": str(e)}, status_code=502)
+    return {"spoken": plan.spoken, "understood": plan.understood,
+            "matched": plan.matched}
 
 
 @app.get("/api/homekit")

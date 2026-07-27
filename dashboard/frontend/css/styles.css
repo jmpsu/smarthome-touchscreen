@@ -163,6 +163,66 @@ button { font-family: inherit; color: inherit; cursor: pointer; border: none; ba
 .qtile .qstate { font-size: 12px; color: var(--muted); }
 .qtile .qicon { font-size: 22px; }
 
+/* ------------------------------ LAUNCHER ------------------------------- */
+.launcher { display: flex; gap: 20px; height: 100%; }
+.launch-widgets { width: 340px; flex: 0 0 340px; display: flex; flex-direction: column; gap: 16px; }
+.launch-clock-card { display: flex; flex-direction: column; align-items: flex-start; }
+.launch-clock-card .clock-time { font-size: 68px; font-weight: 300; line-height: 1; }
+.launch-clock-meta { display: flex; gap: 12px; margin-top: 8px; color: var(--muted); font-size: 14px; }
+.launch-cal { flex: 0 0 auto; }
+.launch-widgets .rotator { flex: 1; min-height: 120px; }
+
+.mini-cal { margin-bottom: 10px; }
+.cal-month { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; text-align: center; }
+.cal-dow { font-size: 10px; color: var(--muted); }
+.cal-day { font-size: 12px; padding: 4px 0; border-radius: 8px; }
+.cal-day.today { background: var(--accent); color: #201400; font-weight: 700; }
+.reminders { display: flex; flex-direction: column; gap: 6px; }
+.reminder { display: flex; justify-content: space-between; align-items: center;
+  font-size: 13px; padding: 8px 10px; border-radius: 10px; background: var(--glass-2); }
+.rem-del { color: var(--muted); font-size: 12px; }
+.rem-add { margin-top: 4px; font-size: 13px; color: var(--accent-2); text-align: left; }
+
+.launch-apps { flex: 1; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  gap: 18px; overflow-x: auto; align-content: start; }
+.app-group { display: flex; flex-direction: column; min-width: 0; }
+.app-group-title { font-size: 14px; text-transform: uppercase; letter-spacing: 1.2px;
+  color: var(--muted); padding: 0 6px 10px; border-bottom: 1px solid var(--stroke); margin-bottom: 10px; }
+.app-list { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+.app-tile { display: flex; align-items: center; gap: 12px; text-align: left;
+  padding: 12px; border-radius: var(--radius-sm); background: var(--glass);
+  border: 1px solid var(--stroke); transition: .16s; }
+.app-tile:active { transform: scale(.98); }
+.app-tile:hover { border-color: var(--stroke-2); }
+.app-ic { width: 44px; height: 44px; flex: 0 0 auto; border-radius: 12px; font-size: 22px;
+  display: grid; place-items: center; background: var(--glass-2); }
+.app-meta { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.app-name { font-size: 15px; font-weight: 600; }
+.app-desc { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.app-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--good); flex: 0 0 auto;
+  box-shadow: 0 0 8px rgba(55,211,155,.6); }
+
+/* ------------------------------ FLOOR PLAN ----------------------------- */
+.floorplan-wrap { height: calc(100% - 58px); display: grid; place-items: center; }
+.floorplan { width: 100%; height: 100%; max-height: 100%; display: grid; gap: 8px; }
+.fp-room {
+  position: relative; border: 1.5px solid var(--stroke-2); border-radius: 14px;
+  background: rgba(255,255,255,.02); backdrop-filter: blur(6px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  color: var(--text); transition: .18s; overflow: hidden;
+}
+.fp-room:active { transform: scale(.985); }
+.fp-room.lit { border-color: rgba(255,182,56,.5); background: rgba(255,182,56,.06);
+  box-shadow: inset 0 0 30px rgba(255,182,56,.08); }
+.fp-name { font-size: 16px; font-weight: 500; letter-spacing: .3px; text-align: center; padding: 0 6px; }
+.fp-stat { font-size: 11px; color: var(--muted); padding: 2px 8px; border-radius: 999px; background: var(--glass-2); }
+.fp-stat.on { color: var(--accent); }
+.fp-editor { width: 100%; height: 55vh; background: var(--bg-1); color: var(--text);
+  border: 1px solid var(--stroke-2); border-radius: 12px; padding: 12px; font-family: monospace; font-size: 12px; }
+.room-detail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+#room-detail-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
 /* ------------------------------ LIGHTS --------------------------------- */
 /* Rooms view: stacked sections, each with its own card grid (ref design) */
 .rooms-view { height: calc(100% - 58px); overflow-y: auto; padding-right: 6px; }

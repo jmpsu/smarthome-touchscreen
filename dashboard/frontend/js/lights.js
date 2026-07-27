@@ -175,9 +175,22 @@
 
   function renderQuick() {
     const grid = document.getElementById("quick-grid");
+    if (!grid) return; // quick tiles are optional (not on the launcher)
     const lights = HA.lights().slice(0, 6);
     grid.innerHTML = "";
     lights.forEach((e) => grid.appendChild(tile(e)));
+  }
+
+  // render the lights for a single room (used by the floorplan room detail)
+  function renderRoom(roomName, container, emptyEl) {
+    if (!container) return;
+    const lights = HA.lights()
+      .filter((e) => (window.Rooms ? Rooms.roomOf(e) : "") === roomName)
+      .sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+    container.innerHTML = "";
+    if (!lights.length) { if (emptyEl) emptyEl.hidden = false; return; }
+    if (emptyEl) emptyEl.hidden = true;
+    lights.forEach((e) => container.appendChild(card(e)));
   }
 
   function renderScenes() {
@@ -229,5 +242,5 @@
     renderScenes();
   });
 
-  window.Lights = { renderGrid, renderQuick, renderScenes };
+  window.Lights = { renderGrid, renderQuick, renderScenes, renderRoom };
 })();

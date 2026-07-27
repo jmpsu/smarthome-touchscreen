@@ -66,6 +66,25 @@
     e.target.textContent = "Re-scan network";
   });
 
+  // voice command tester (dry-run so it explains without changing lights)
+  document.getElementById("voice-test")?.addEventListener("click", async () => {
+    const input = document.getElementById("voice-input");
+    const out = document.getElementById("voice-result");
+    out.textContent = "Thinking…";
+    try {
+      const r = await fetch("/api/voice/command", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: input.value, dry_run: true }),
+      });
+      const d = await r.json();
+      out.innerHTML = d.understood
+        ? `✓ “${d.spoken}” <span class="badge">(${(d.matched || []).length} light(s))</span>`
+        : `✕ ${d.spoken}`;
+    } catch (e) {
+      out.textContent = "Error: " + e;
+    }
+  });
+
   window.Settings = {
     load() { loadHomeKit(); loadDiscovered(); loadHealth(); },
   };

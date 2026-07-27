@@ -28,8 +28,21 @@ touch screen** (Lights → ＋ Add device / Rooms).
 | **MediaMTX + eufy-security-ws** | Pulls the two Eufy cameras into low-latency WebRTC live views for the dashboard. |
 | **Installer + Setup Wizard** | `install.sh` bootstraps Docker, prompts for credentials, discovers devices, and configures Chromium kiosk autostart. |
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full picture and
-[`docs/DEVICES.md`](docs/DEVICES.md) for how each brand is integrated.
+### The interface
+
+- **Landing page** — an app-launcher home screen: a clock, a mini calendar +
+  reminders, and grouped tiles for every tool the system controls (all
+  user-editable). Tiles open internal screens or your own external tools.
+- **Home map** — a sleek, top-down floor plan of your house (fully
+  configurable). Tap a room to drill into just that room's lights and control
+  color / brightness / on-off by touch.
+- **Lights / Scenes / Cameras / Info** — the unified device screens.
+- **Voice** — "Hey Siri…" via HomeKit is the primary control; an optional Apple
+  Shortcut adds rich phrases like "dim the kitchen by 99%".
+
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full picture,
+[`docs/DEVICES.md`](docs/DEVICES.md) for how each brand is integrated, and
+[`docs/VOICE.md`](docs/VOICE.md) for voice setup.
 
 ---
 
