@@ -1,0 +1,15 @@
+# Eufy cameras, restreamed by MediaMTX (fed from eufy-security-ws).
+# The stream paths are created in mediamtx/mediamtx.yml. Two cameras are
+# configured by default; add more blocks as needed. Names are shown on the
+# dashboard's camera screen.
+- platform: generic
+  name: Front Door (Eufy)
+  stream_source: rtsp://127.0.0.1:8554/eufy_front
+  still_image_url: http://127.0.0.1:8888/eufy_front/frame.jpeg
+  verify_ssl: false
+
+- platform: generic
+  name: Backyard (Eufy)
+  stream_source: rtsp://127.0.0.1:8554/eufy_back
+  still_image_url: http://127.0.0.1:8888/eufy_back/frame.jpeg
+  verify_ssl: false

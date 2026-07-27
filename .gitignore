@@ -1,0 +1,25 @@
+# Secrets — NEVER commit real credentials
+.env
+*.secret
+secrets.yaml
+homekit.state
+config/.storage/
+config/home-assistant.log*
+config/.cloud/
+
+# Runtime / generated
+data/
+discovered_devices.json
+setup/.setup_complete
+mediamtx/eufy-config.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node / misc
+node_modules/
+.DS_Store
+*.log

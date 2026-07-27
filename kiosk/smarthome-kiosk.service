@@ -1,0 +1,19 @@
+# Optional systemd *user* unit alternative to the XDG autostart .desktop entry.
+# Enable with:
+#   systemctl --user enable --now smarthome-kiosk.service
+# (The XDG autostart entry installed by install_kiosk.sh is the default path;
+#  use this unit only if you prefer systemd-managed restart behavior.)
+[Unit]
+Description=SmartHome Touchscreen Kiosk (Chromium)
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+Environment=DASHBOARD_PORT=8080
+ExecStart=%h/smarthome-touchscreen/kiosk/kiosk.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

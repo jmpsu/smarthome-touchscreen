@@ -1,0 +1,35 @@
+# MediaMTX — restreams the Eufy cameras (via eufy-security-ws) into RTSP/WebRTC/
+# HLS so both Home Assistant and the dashboard can show low-latency live views.
+#
+# eufy-security-ws exposes each camera's stream after you "start livestream".
+# The dashboard backend triggers that over the ws API; MediaMTX ingests the
+# resulting RTSP and re-publishes it on stable paths (eufy_front / eufy_back).
+logLevel: info
+readTimeout: 20s
+writeTimeout: 20s
+
+# Protocol endpoints
+rtsp: yes
+rtspAddress: :8554
+webrtc: yes
+webrtcAddress: :8889
+hls: yes
+hlsAddress: :8888
+hlsVariant: lowLatency
+
+paths:
+  # Camera 1
+  eufy_front:
+    # eufy-security-ws pushes here once a livestream is started for the device.
+    source: publisher
+    sourceOnDemand: yes
+
+  # Camera 2
+  eufy_back:
+    source: publisher
+    sourceOnDemand: yes
+
+  # Catch-all so additional cameras can publish without editing this file.
+  "~^eufy_.*":
+    source: publisher
+    sourceOnDemand: yes
