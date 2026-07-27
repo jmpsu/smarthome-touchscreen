@@ -21,11 +21,11 @@ lovelace:
 homeassistant:
   # These are overwritten at first boot by set_secrets.py using .env values.
   name: Home
-  latitude: !env_var LATITUDE 27.0648
-  longitude: !env_var LONGITUDE -80.1387
-  elevation: !env_var ELEVATION 3
+  latitude: !env_var LATITUDE 0
+  longitude: !env_var LONGITUDE 0
+  elevation: !env_var ELEVATION 0
   unit_system: us_customary
-  time_zone: !env_var TIMEZONE America/New_York
+  time_zone: !env_var TIMEZONE UTC
   # Allow the dashboard container + kiosk browser to reach the API.
   auth_providers:
     - type: homeassistant

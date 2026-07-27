@@ -8,7 +8,7 @@
    Tapping any tide/solunar panel opens the Jupiter Inlet MONTH view (modal).
    ========================================================================= */
 (function () {
-  let cfg = { rotate_seconds: 10, x_account: "SurfnWeatherman", tides_month_url: "" };
+  let cfg = { rotate_seconds: 10, x_account: "", tides_enabled: false, tides_month_url: "" };
   let data = null;
   let idx = 0;
   let timer = null;
@@ -30,6 +30,20 @@
       const r = await fetch("/api/displays");
       if (r.ok) { data = await r.json(); build(); }
     } catch (e) { console.warn("displays load failed", e); }
+  }
+
+  // Always-available panel so the rotator is never empty on a fresh install.
+  function panelWelcome() {
+    return `
+      <div class="rot-title">At a glance</div>
+      <div class="rot-sub">Your home dashboard</div>
+      <div class="welcome-panel">
+        <div class="welcome-clock" id="rot-clock">--:--</div>
+        <div class="welcome-date" id="rot-date"></div>
+        <div class="muted" style="margin-top:14px">
+          Add tide, weather or an X feed to this panel in <b>Setup → Info</b>.
+        </div>
+      </div>`;
   }
 
   // ---- panel builders ----------------------------------------------------
@@ -144,19 +158,22 @@
 
   // ---- assemble + cycle --------------------------------------------------
   function build() {
-    if (!data) return;
     const track = $("#rotator-track");
     const dots = $("#rotator-dots");
+    if (!track) return;
     track.innerHTML = "";
     dots.innerHTML = "";
     panels.length = 0;
 
-    const defs = [
-      { kind: "tides", html: panelNext7(data.display1_next7days) },
-      { kind: "tides", html: panelTides(data.display2_tides || {}) },
-      { kind: "tides", html: panelSolunar(data.display3_solunar || {}) },
-      { kind: "x", html: panelX() },
-    ];
+    // Build the panel set dynamically from what the user has configured.
+    const defs = [];
+    if (data && data.enabled) {
+      defs.push({ kind: "tides", html: panelNext7(data.display1_next7days) });
+      defs.push({ kind: "tides", html: panelTides(data.display2_tides || {}) });
+      defs.push({ kind: "tides", html: panelSolunar(data.display3_solunar || {}) });
+    }
+    if (cfg.x_account) defs.push({ kind: "x", html: panelX() });
+    if (!defs.length) defs.push({ kind: "welcome", html: panelWelcome() });
 
     defs.forEach((def, i) => {
       const p = document.createElement("div");
@@ -190,7 +207,7 @@
   function onTap(kind) {
     if (kind === "x") {
       window.open(`https://x.com/${cfg.x_account}`, "_blank");
-    } else {
+    } else if (kind === "tides") {
       openMonth();
     }
   }

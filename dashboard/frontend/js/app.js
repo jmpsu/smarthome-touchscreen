@@ -38,6 +38,9 @@
     setText("clock-zone", zone);
     setText("home-date", date);
     setText("home-greeting", greeting(now, tz));
+    // feed the rotator's welcome panel if it's showing
+    setText("rot-clock", time);
+    setText("rot-date", date);
   }
   function greeting(now, tz) {
     const h = +new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "numeric", hour12: false }).format(now);
@@ -53,6 +56,12 @@
     host.innerHTML = `<div class="empty">Loading tide &amp; sun data…</div>`;
     try {
       const d = await (await fetch("/api/displays")).json();
+      if (!d.enabled) {
+        host.innerHTML = `<div class="empty">No tide location set yet.<br><br>
+          Add a coastal location in <b>Setup → Info</b> to see the Next 7 Days,
+          Tides, and Solunar panels here and in the rotating home panel.</div>`;
+        return;
+      }
       host.innerHTML = `
         <div class="settings-grid" style="height:calc(100% - 0px)">
           <div class="card" id="fd1"></div>

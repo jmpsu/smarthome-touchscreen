@@ -37,6 +37,17 @@
   function setColor(e, rgb) {
     HA.call("light", "turn_on", { entity_id: e.entity_id, rgb_color: rgb });
   }
+  function supportsTemp(e) {
+    const modes = (e.attributes && e.attributes.supported_color_modes) || [];
+    return modes.includes("color_temp");
+  }
+  function cycleTemp(e) {
+    // step warm ↔ cool through a few mireds so the icon button is useful
+    const steps = [153, 250, 370, 500];
+    const cur = (e.attributes && e.attributes.color_temp) || 370;
+    const next = steps[(steps.findIndex((s) => s >= cur) + 1) % steps.length];
+    HA.call("light", "turn_on", { entity_id: e.entity_id, color_temp: next });
+  }
 
   // ---- full light card ---------------------------------------------------
   function card(e) {
@@ -44,32 +55,35 @@
     el.className = "light-card" + (isOn(e) ? " on" : "");
     el.dataset.id = e.entity_id;
 
-    const room = roomOf(e);
+    const on = isOn(e);
     el.innerHTML = `
       <div class="lc-top">
-        <div>
-          <div class="lc-name">${nameOf(e)}</div>
-          ${room ? `<div class="lc-room">${room}</div>` : ""}
-        </div>
         <div class="lc-bulb">☀</div>
+        <div class="lc-id">
+          <div class="lc-name">${nameOf(e)}</div>
+          <div class="lc-room">${on ? brightPct(e) + "%" : (e.state === "unavailable" ? "Unavailable" : "Off")}</div>
+        </div>
+        <div class="toggle ${on ? "on" : ""}" data-act="toggle"></div>
       </div>
-      <div class="lc-toggle-row">
-        <div class="toggle ${isOn(e) ? "on" : ""}" data-act="toggle"></div>
+      <div class="lc-controls">
+        <input type="range" class="bri" min="0" max="100" value="${brightPct(e)}"
+          aria-label="Brightness" ${e.state === "unavailable" ? "disabled" : ""} />
+        ${supportsTemp(e) ? `<button class="lc-btn" data-act="temp" title="Color temperature">🌡</button>` : ""}
+        ${supportsColor(e) ? `<button class="lc-btn" data-act="color" title="Color">🎨</button>` : ""}
+        <button class="lc-btn" data-act="room" title="Assign room">⋯</button>
       </div>
-      <div class="slider-wrap">
-        <label>Brightness <span class="bri-val">${brightPct(e)}%</span></label>
-        <input type="range" class="bri" min="0" max="100" value="${brightPct(e)}" />
-      </div>
-      ${supportsColor(e) ? `<div class="swatches"></div>` : ""}
+      ${supportsColor(e) ? `<div class="swatches" hidden></div>` : ""}
     `;
 
     el.querySelector('[data-act="toggle"]').addEventListener("click", () => toggle(e));
     el.querySelector(".lc-bulb").addEventListener("click", () => toggle(e));
 
     const bri = el.querySelector(".bri");
-    const briVal = el.querySelector(".bri-val");
-    bri.addEventListener("input", () => (briVal.textContent = bri.value + "%"));
+    const state = el.querySelector(".lc-room");
+    bri.addEventListener("input", () => (state.textContent = bri.value + "%"));
     bri.addEventListener("change", () => setBrightness(e, bri.value));
+
+    el.querySelector('[data-act="temp"]')?.addEventListener("click", () => cycleTemp(e));
 
     if (supportsColor(e)) {
       const sw = el.querySelector(".swatches");
@@ -80,8 +94,31 @@
         s.addEventListener("click", () => setColor(e, rgb));
         sw.appendChild(s);
       });
+      el.querySelector('[data-act="color"]').addEventListener("click", () =>
+        (sw.hidden = !sw.hidden)
+      );
     }
+
+    // per-card room assignment picker
+    el.querySelector('[data-act="room"]').addEventListener("click", () =>
+      openRoomPicker(e)
+    );
     return el;
+  }
+
+  // small popover picker reusing Rooms.roomSelect
+  function openRoomPicker(e) {
+    const body = document.getElementById("modal-body");
+    body.innerHTML = `<h1 style="margin-bottom:6px">${nameOf(e)}</h1>
+      <div class="muted" style="margin-bottom:16px">Assign this light to a room.</div>`;
+    const sel = Rooms.roomSelect(Rooms.roomOf(e));
+    sel.style.fontSize = "18px";
+    sel.addEventListener("change", async () => {
+      await Rooms.assign(e.entity_id, sel.value || null);
+      document.getElementById("modal").hidden = true;
+    });
+    body.appendChild(sel);
+    document.getElementById("modal").hidden = false;
   }
 
   // ---- quick tile (home screen) -----------------------------------------
@@ -105,7 +142,35 @@
     grid.innerHTML = "";
     if (!lights.length) { empty.hidden = false; return; }
     empty.hidden = true;
-    lights.forEach((e) => grid.appendChild(card(e)));
+
+    // group by room (like the reference: Living Room / Kitchen / Bedroom …)
+    const byRoom = {};
+    lights.forEach((e) => {
+      const room = window.Rooms ? Rooms.roomOf(e) : "Unassigned";
+      (byRoom[room] = byRoom[room] || []).push(e);
+    });
+    // ordered rooms first, then any extras, Unassigned last
+    const order = (window.Rooms ? Rooms.data.rooms : []).slice();
+    const roomNames = Object.keys(byRoom).sort((a, b) => {
+      if (a === "Unassigned") return 1;
+      if (b === "Unassigned") return -1;
+      return (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99);
+    });
+
+    roomNames.forEach((room) => {
+      const section = document.createElement("section");
+      section.className = "room-section";
+      const head = document.createElement("div");
+      head.className = "room-head";
+      head.innerHTML = `<h2>${room}</h2>
+        <span class="room-count">${byRoom[room].length} light${byRoom[room].length > 1 ? "s" : ""}</span>`;
+      section.appendChild(head);
+      const cards = document.createElement("div");
+      cards.className = "light-grid";
+      byRoom[room].forEach((e) => cards.appendChild(card(e)));
+      section.appendChild(cards);
+      grid.appendChild(section);
+    });
   }
 
   function renderQuick() {
@@ -142,6 +207,20 @@
   document.getElementById("all-off")?.addEventListener("click", () =>
     HA.call("light", "turn_off", { entity_id: "all" })
   );
+
+  // header buttons: Add device / Manage rooms
+  document.getElementById("add-device")?.addEventListener("click", () =>
+    Rooms.showAddDevice()
+  );
+  document.getElementById("manage-rooms")?.addEventListener("click", () =>
+    Rooms.showManageRooms()
+  );
+
+  // load room assignments, then re-render whenever rooms or state change
+  if (window.Rooms) {
+    Rooms.load().then(renderGrid);
+    Rooms.onChange(() => { renderGrid(); renderQuick(); });
+  }
 
   // re-render on every state push
   HA.onState(() => {

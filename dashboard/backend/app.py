@@ -19,6 +19,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from . import rooms as rooms_store
 from . import tides
 from .ha_client import HAClient
 
@@ -40,13 +41,11 @@ async def config():
             "width": int(os.getenv("SCREEN_WIDTH", "1920")),
             "height": int(os.getenv("SCREEN_HEIGHT", "720")),
         },
-        "timezone": os.getenv("TIMEZONE", "America/New_York"),
+        "timezone": os.getenv("TIMEZONE") or "UTC",
         "rotate_seconds": int(os.getenv("ROTATE_SECONDS", "10")),
-        "x_account": os.getenv("X_ACCOUNT", "SurfnWeatherman"),
-        "tides_month_url": os.getenv(
-            "TIDES_MONTH_URL",
-            "https://www.tidespro.com/us/florida/jupiter-inlet-us-highway-1-bridge/month",
-        ),
+        "x_account": os.getenv("X_ACCOUNT", "").lstrip("@"),
+        "tides_enabled": bool(os.getenv("TIDES_WEEK_URL", "").strip()),
+        "tides_month_url": os.getenv("TIDES_MONTH_URL", ""),
         "ha_healthy": await ha.healthy(),
     }
 
@@ -61,6 +60,26 @@ async def states():
         return await ha.states()
     except Exception as e:
         return JSONResponse({"error": str(e), "states": []}, status_code=502)
+
+
+@app.get("/api/camera/{entity_id}/snapshot")
+async def camera_snapshot(entity_id: str):
+    """Proxy a still image for ANY Home Assistant camera entity (any brand).
+
+    This keeps camera live views generic: the frontend refreshes this endpoint
+    for a near-live view without needing brand-specific stream URLs. The HA
+    token stays server-side.
+    """
+    import httpx
+    from fastapi.responses import Response
+    url = f"{ha.base_url}/api/camera_proxy/{entity_id}"
+    try:
+        async with httpx.AsyncClient(timeout=10) as c:
+            r = await c.get(url, headers={"Authorization": f"Bearer {ha.token}"})
+            return Response(content=r.content,
+                            media_type=r.headers.get("content-type", "image/jpeg"))
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=502)
 
 
 @app.post("/api/service/{domain}/{service}")
@@ -80,6 +99,49 @@ async def discovered():
     if path.exists():
         return json.loads(path.read_text())
     return {"count": 0, "devices": []}
+
+
+@app.post("/api/scan")
+async def scan():
+    """Run a fresh network scan on demand (the 'Add device' flow uses this)."""
+    import asyncio
+    script = PROJECT_ROOT / "setup" / "scan_network.py"
+    out = PROJECT_ROOT / "discovered_devices.json"
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "python3", str(script), "--output", str(out),
+            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE,
+        )
+        await asyncio.wait_for(proc.communicate(), timeout=60)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    if out.exists():
+        return {"ok": True, **json.loads(out.read_text())}
+    return {"ok": True, "count": 0, "devices": []}
+
+
+# --------------------------------------------------------------------------- #
+# Rooms: list / create / delete / assign (edited from the touch screen)
+# --------------------------------------------------------------------------- #
+@app.get("/api/rooms")
+async def get_rooms():
+    return rooms_store.load()
+
+
+@app.post("/api/rooms/create")
+async def create_room(payload: dict):
+    return rooms_store.create_room(payload.get("name", ""))
+
+
+@app.post("/api/rooms/delete")
+async def delete_room(payload: dict):
+    return rooms_store.delete_room(payload.get("name", ""))
+
+
+@app.post("/api/rooms/assign")
+async def assign_room(payload: dict):
+    """Assign an entity (light/switch/camera) to a room, or clear it (room=null)."""
+    return rooms_store.assign(payload.get("entity_id", ""), payload.get("room"))
 
 
 @app.get("/api/homekit")

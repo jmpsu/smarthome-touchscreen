@@ -1,16 +1,21 @@
 # SmartHome Touchscreen Control Panel
 
-A wall-mounted smart-home command center for a **Raspberry Pi 5 + 1920×720 touch
-screen**. It unifies every Wi-Fi light and device on your network — **Tuya,
-WiZ, Monster, SmartLife (sprinkler), Marvelight light strips** and **Eufy
-cameras** — into one clean, dark-themed touch dashboard, and exposes them all to
-**Apple HomeKit / Siri** as if they were native accessories.
+A **generic, shareable** wall-mounted smart-home command center for a
+**Raspberry Pi 5 + touch screen**. Anyone can download it, install it, and set
+up **their own** home — add their own lights, cameras, rooms, and info panels
+entirely from the touch screen. Nothing is hardcoded to a particular house.
+
+It unifies the Wi-Fi lights and devices on your network — **Tuya / SmartLife,
+WiZ**, and other brands with a local or SmartLife-linked API — plus any
+**cameras** you link, into one clean, dark-themed touch dashboard, and exposes
+them all to **Apple HomeKit / Siri** as if they were native accessories.
 
 Everything is designed to be copied to a **USB stick**, plugged into a Pi 5
 running Raspberry Pi OS, and brought up with **one script**. An interactive
 setup wizard prompts for the handful of passwords that can't be auto-discovered,
 scans your network for devices, and launches the kiosk — typically in **1–5
-minutes**.
+minutes**. After that you **add devices and assign them to rooms right on the
+touch screen** (Lights → ＋ Add device / Rooms).
 
 ---
 

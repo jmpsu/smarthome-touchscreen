@@ -94,6 +94,19 @@ def write_env(path: Path, env: dict[str, str]) -> None:
     say(f"[+] Wrote {path} (permissions 600)", style="green")
 
 
+def _detect_timezone() -> str:
+    """Best-effort local timezone so the clock is right out of the box."""
+    try:
+        from pathlib import Path as _P
+        link = _P("/etc/localtime").resolve()
+        parts = str(link).split("/zoneinfo/")
+        if len(parts) == 2:
+            return parts[1]
+    except Exception:
+        pass
+    return os.getenv("TZ", "UTC")
+
+
 def gen_homekit_pin() -> str:
     """Random 8-digit HomeKit PIN in XXX-XX-XXX form (avoids trivial codes)."""
     while True:
@@ -131,13 +144,14 @@ def main() -> int:
         say("Non-interactive mode: keeping existing/default values.", style="yellow")
     else:
         # --- Location ------------------------------------------------------ #
-        say("\n[1/5] Location & time (drives the clock and tide displays)", style="bold")
-        env["TIMEZONE"] = ask("Timezone", env.get("TIMEZONE", "America/New_York"))
-        env["LATITUDE"] = ask("Latitude", env.get("LATITUDE", "27.0648"))
-        env["LONGITUDE"] = ask("Longitude", env.get("LONGITUDE", "-80.1387"))
+        say("\n[1/6] Location & time (drives the clock and weather)", style="bold")
+        env["TIMEZONE"] = ask("Timezone (IANA, e.g. America/New_York)",
+                              env.get("TIMEZONE") or _detect_timezone())
+        env["LATITUDE"] = ask("Latitude (optional, for weather/tides)", env.get("LATITUDE", ""))
+        env["LONGITUDE"] = ask("Longitude (optional)", env.get("LONGITUDE", ""))
 
         # --- Tuya / SmartLife --------------------------------------------- #
-        say("\n[2/5] Tuya / SmartLife (lights, strips, sprinkler)", style="bold")
+        say("\n[2/6] Tuya / SmartLife (lights, strips, any SmartLife device)", style="bold")
         say("We use the QR-code 'Smart Life' sign-in — no developer account needed.")
         say("After setup finishes, open the dashboard Settings screen: it shows a")
         say("QR code to scan with the SmartLife app to link all Tuya devices.")
@@ -150,13 +164,13 @@ def main() -> int:
             env["TUYA_ENABLED"] = "false"
 
         # --- WiZ ----------------------------------------------------------- #
-        say("\n[3/5] WiZ bulbs", style="bold")
+        say("\n[3/6] WiZ bulbs", style="bold")
         say("WiZ bulbs are found automatically over the LAN — no password needed.")
         env["WIZ_AUTODISCOVER"] = "true"
 
         # --- Eufy ---------------------------------------------------------- #
-        say("\n[4/5] Eufy Security cameras (for live views)", style="bold")
-        if yes("Add your two Eufy cameras now?", default=True):
+        say("\n[4/6] Eufy Security cameras (optional, for live views)", style="bold")
+        if yes("Do you have Eufy cameras to add?", default=False):
             env["EUFY_ENABLED"] = "true"
             env["EUFY_USERNAME"] = ask("Eufy account e-mail", env.get("EUFY_USERNAME", ""))
             pw = ask("Eufy password", password=True)
@@ -167,11 +181,27 @@ def main() -> int:
             env["EUFY_ENABLED"] = "false"
 
         # --- Extras -------------------------------------------------------- #
-        say("\n[5/5] Extra light strips (Marvelight / Monster / other)", style="bold")
-        say("Most of these link through the SmartLife account above. If any strip")
+        say("\n[5/6] Extra light strips (any brand with a local API)", style="bold")
+        say("Most strips link through the SmartLife account above. If any strip")
         say("has a fixed IP with a local API, enter it (comma-separated) or skip.")
         env["EXTRA_LIGHT_HOSTS"] = ask("Extra light host IPs",
                                        env.get("EXTRA_LIGHT_HOSTS", ""))
+
+        # --- Info panel (optional personalization) ------------------------ #
+        say("\n[6/6] Rotating info panel (optional)", style="bold")
+        say("Personalize the home screen's rotating panel. Leave blank to skip —")
+        say("the clock always shows. You can change these later in Settings.")
+        env["X_ACCOUNT"] = ask("X/Twitter handle to show (without @)",
+                               env.get("X_ACCOUNT", "")).lstrip("@")
+        if yes("Show tide/solunar panels for a coastal location?", default=False):
+            say("Find your spot on tidespro.com and paste its page URL.")
+            env["TIDES_WEEK_URL"] = ask("tidespro location URL",
+                                        env.get("TIDES_WEEK_URL", ""))
+            env["TIDES_MONTH_URL"] = ask("tidespro month URL (…/month)",
+                                         env.get("TIDES_MONTH_URL", ""))
+        else:
+            env["TIDES_WEEK_URL"] = ""
+            env["TIDES_MONTH_URL"] = ""
 
     # --- always-generated values ------------------------------------------ #
     if not env.get("HOMEKIT_PIN") or env.get("HOMEKIT_PIN") == "031-45-154":
@@ -180,11 +210,17 @@ def main() -> int:
     env.setdefault("DASHBOARD_PORT", "8080")
     env.setdefault("SCREEN_WIDTH", "1920")
     env.setdefault("SCREEN_HEIGHT", "720")
-    env.setdefault("X_ACCOUNT", "SurfnWeatherman")
-    env.setdefault("TIDES_WEEK_URL",
-                   "https://www.tidespro.com/us/florida/hobe-sound-jupiter-island")
-    env.setdefault("TIDES_MONTH_URL",
-                   "https://www.tidespro.com/us/florida/jupiter-inlet-us-highway-1-bridge/month")
+    env.setdefault("TIMEZONE", _detect_timezone())
+    if not env.get("TIMEZONE"):
+        env["TIMEZONE"] = _detect_timezone()
+    # Home Assistant needs numeric lat/long/elevation; default blanks to 0.
+    for k in ("LATITUDE", "LONGITUDE", "ELEVATION"):
+        if not (env.get(k) or "").strip():
+            env[k] = "0"
+    # Info-panel sources are personal — no defaults; blank means "hide panel".
+    env.setdefault("X_ACCOUNT", "")
+    env.setdefault("TIDES_WEEK_URL", "")
+    env.setdefault("TIDES_MONTH_URL", "")
     env.setdefault("ROTATE_SECONDS", "10")
 
     write_env(env_path, env)

@@ -23,10 +23,9 @@ from typing import Any
 import httpx
 from bs4 import BeautifulSoup
 
-WEEK_URL = os.getenv("TIDES_WEEK_URL",
-                     "https://www.tidespro.com/us/florida/hobe-sound-jupiter-island")
-MONTH_URL = os.getenv("TIDES_MONTH_URL",
-                      "https://www.tidespro.com/us/florida/jupiter-inlet-us-highway-1-bridge/month")
+# Personal, user-configured sources — empty means the tide panels are hidden.
+WEEK_URL = os.getenv("TIDES_WEEK_URL", "").strip()
+MONTH_URL = os.getenv("TIDES_MONTH_URL", "").strip()
 CACHE_TTL = 15 * 60  # seconds
 _UA = {"User-Agent": "SmartHomeTouchscreen/1.0 (+local kiosk)"}
 
@@ -166,10 +165,18 @@ async def _cached(key: str, coro) -> Any:
 
 
 async def get_displays() -> dict[str, Any]:
-    """Everything the three rotating displays need, in one payload."""
+    """Everything the three rotating displays need, in one payload.
+
+    Returns {"enabled": False} when the user hasn't configured a tide location,
+    so the frontend simply omits the tide/solunar panels.
+    """
+    if not WEEK_URL:
+        return {"enabled": False}
+
     async def build():
         week = _parse_week(await _get_html(WEEK_URL))
         return {
+            "enabled": True,
             "display1_next7days": week,
             "display2_tides": {
                 "next_tides": _next_tides(week),
@@ -182,6 +189,8 @@ async def get_displays() -> dict[str, Any]:
 
 
 async def get_month() -> dict[str, Any]:
+    if not MONTH_URL:
+        return {"enabled": False, "title": "", "rows": []}
     return await _cached("month", lambda: _month())
 
 

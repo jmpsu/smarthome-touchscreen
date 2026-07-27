@@ -43,10 +43,16 @@
 
 ## Rotating displays
 
-`dashboard/backend/tides.py` scrapes the tidespro pages named in the spec and
-normalizes them into three panels (`Next 7 Days`, `Tides`, `Solunars & Sun/Moon`)
-plus a month drill-down. `rotating.js` fades between them every 10 s and adds the
-`@SurfnWeatherman` X timeline as a fourth panel. Tapping a tide panel opens the
-Jupiter Inlet month table in a modal; tapping the X panel opens x.com.
+The rotating home panel is **fully user-configured** — nothing is hardcoded. In
+the setup wizard (or Settings) a user can optionally provide:
+
+- a **tidespro.com location URL** → adds three panels (`Next 7 Days`, `Tides`,
+  `Solunars & Sun/Moon`) parsed by `dashboard/backend/tides.py`, with a
+  tap-to-open month drill-down;
+- an **X/Twitter handle** → adds a live timeline panel that opens x.com on tap.
+
+`rotating.js` builds the panel set dynamically from whatever is configured and
+fades between them every `ROTATE_SECONDS`. If nothing is set, an always-present
+clock/date panel shows, so a fresh install is never blank.
 
 See [`DEVICES.md`](DEVICES.md) for per-brand integration details.

@@ -1,15 +1,17 @@
-# Eufy cameras, restreamed by MediaMTX (fed from eufy-security-ws).
-# The stream paths are created in mediamtx/mediamtx.yml. Two cameras are
-# configured by default; add more blocks as needed. Names are shown on the
-# dashboard's camera screen.
-- platform: generic
-  name: Front Door (Eufy)
-  stream_source: rtsp://127.0.0.1:8554/eufy_front
-  still_image_url: http://127.0.0.1:8888/eufy_front/frame.jpeg
-  verify_ssl: false
+# Cameras are dynamic — nothing is hardcoded here.
+#
+# When you link a camera integration in Home Assistant (Eufy via
+# eufy-security-ws, or any ONVIF/RTSP/generic camera), its `camera.*` entities
+# appear automatically and the dashboard shows them on the Cameras screen with
+# no edits to this file.
+#
+# This file is only for MANUALLY adding a generic RTSP/HTTP camera that HA can't
+# auto-discover. Example (uncomment and edit):
+#
+# - platform: generic
+#   name: My Camera
+#   stream_source: rtsp://user:pass@192.168.1.50:554/stream
+#   still_image_url: http://192.168.1.50/snapshot.jpg
+#   verify_ssl: false
 
-- platform: generic
-  name: Backyard (Eufy)
-  stream_source: rtsp://127.0.0.1:8554/eufy_back
-  still_image_url: http://127.0.0.1:8888/eufy_back/frame.jpeg
-  verify_ssl: false
+[]

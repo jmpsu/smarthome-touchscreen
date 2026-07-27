@@ -65,11 +65,13 @@
         <header class="screen-head">
           <h1>Lights</h1>
           <div class="head-actions">
-            <button class="pill" id="all-on">All on</button>
+            <button class="pill" id="add-device">＋ Add device</button>
+            <button class="pill ghost" id="manage-rooms">Rooms</button>
+            <button class="pill ghost" id="all-on">All on</button>
             <button class="pill ghost" id="all-off">All off</button>
           </div>
         </header>
-        <div class="light-grid" id="light-grid"><!-- light cards injected --></div>
+        <div class="rooms-view" id="light-grid"><!-- room sections injected --></div>
         <div class="empty" id="lights-empty" hidden>
           No lights found yet. Open <b>Setup</b> to link your SmartLife / WiZ
           accounts, then they’ll appear here automatically.
@@ -141,6 +143,7 @@
 
   <script src="/js/ha.js"></script>
   <script src="/js/rotating.js"></script>
+  <script src="/js/rooms.js"></script>
   <script src="/js/lights.js"></script>
   <script src="/js/cameras.js"></script>
   <script src="/js/settings.js"></script>
