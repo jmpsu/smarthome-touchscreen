@@ -19,6 +19,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from . import celestial
 from . import rooms as rooms_store
 from . import store
 from . import tides
@@ -240,6 +241,16 @@ async def displays():
         return await tides.get_displays()
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=502)
+
+
+@app.get("/api/celestial")
+async def celestial_events():
+    """Curated upcoming celestial events for the rotating slides + calendar."""
+    try:
+        return celestial.upcoming()
+    except Exception as e:
+        return JSONResponse({"slides": [], "calendar": [], "error": str(e)},
+                            status_code=500)
 
 
 @app.get("/api/displays/month")

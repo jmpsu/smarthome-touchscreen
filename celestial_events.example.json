@@ -1,0 +1,32 @@
+[
+  {
+    "id": "andromeda-2026",
+    "category": "galaxy",
+    "name": "Andromeda Galaxy Well Placed",
+    "peak_date": "2026-11-14",
+    "dates_label": "Early–mid November (best after dusk)",
+    "rate": "Naked-eye under dark skies",
+    "constellation": "Andromeda",
+    "where": "Look northeast, up from the Great Square of Pegasus toward Cassiopeia's 'W'; M31 sits about halfway between them",
+    "best_time": "Late evening, once high in the sky",
+    "score": 70,
+    "description": "The Andromeda Galaxy (M31), 2.5 million light-years away, rides high on autumn nights. From a dark site it appears as an elongated smudge to the naked eye and reveals its bright core and dust lanes through binoculars or a telescope — a premier long-exposure astrophotography target.",
+    "image_url": "",
+    "credit": ""
+  },
+  {
+    "id": "planet-alignment-example",
+    "category": "planet",
+    "name": "Planetary Alignment",
+    "peak_date": "2026-08-18",
+    "dates_label": "Mornings of Aug 16–20",
+    "rate": "Several planets at once",
+    "constellation": "along the ecliptic",
+    "where": "Look east along the ecliptic before sunrise; the planets form a line low across the dawn sky",
+    "best_time": "The hour before sunrise",
+    "score": 65,
+    "description": "Several bright planets gather along the ecliptic in the pre-dawn sky, strung out in a rough line. A wide-angle lens over a low eastern horizon captures the whole lineup — set an alarm for about 45 minutes before sunrise.",
+    "image_url": "",
+    "credit": ""
+  }
+]

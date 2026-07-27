@@ -56,6 +56,31 @@
   }
 
   // ---- mini calendar + reminders (reminders stored per-device) ----------
+  let celestialCal = [];   // [{date:'YYYY-MM-DD', name, category}]
+
+  async function loadCelestial() {
+    try {
+      const d = await (await fetch("/api/celestial")).json();
+      celestialCal = d.calendar || [];
+      renderSky(d.slides || []);
+    } catch (e) { /* offline: skip */ }
+    renderCalendar();
+  }
+
+  function renderSky(slides) {
+    const host = document.getElementById("reminders");
+    if (!host) return;
+    host.parentElement.querySelectorAll(".sky-line").forEach((n) => n.remove());
+    if (!slides.length) return;
+    const next = slides[0];
+    // prepend a "sky tonight" line above reminders
+    const line = document.createElement("div");
+    line.className = "sky-line";
+    line.innerHTML = `<span class="sky-ic">✦</span>
+      <span><b>${next.name}</b><br><span class="muted">${next.dates_label} · ${next.where}</span></span>`;
+    host.parentElement.insertBefore(line, host);
+  }
+
   function renderCalendar() {
     const host = document.getElementById("mini-cal");
     if (!host) return;
@@ -64,12 +89,21 @@
     const first = new Date(y, m, 1).getDay();
     const days = new Date(y, m + 1, 0).getDate();
     const month = now.toLocaleString("en-US", { month: "long", year: "numeric" });
+    // set of day-numbers this month with a celestial peak
+    const marks = new Set(
+      celestialCal
+        .map((c) => new Date(c.date + "T00:00:00"))
+        .filter((d) => d.getFullYear() === y && d.getMonth() === m)
+        .map((d) => d.getDate())
+    );
     let cells = ["S", "M", "T", "W", "T", "F", "S"]
       .map((d) => `<span class="cal-dow">${d}</span>`).join("");
     for (let i = 0; i < first; i++) cells += `<span></span>`;
     for (let d = 1; d <= days; d++) {
       const today = d === now.getDate();
-      cells += `<span class="cal-day ${today ? "today" : ""}">${d}</span>`;
+      const sky = marks.has(d);
+      cells += `<span class="cal-day ${today ? "today" : ""} ${sky ? "sky" : ""}"
+        title="${sky ? "Celestial event" : ""}">${d}</span>`;
     }
     host.innerHTML = `<div class="cal-month">${month}</div><div class="cal-grid">${cells}</div>`;
   }
@@ -104,6 +138,6 @@
   }
 
   window.Launcher = {
-    load() { loadApps(); renderCalendar(); renderReminders(); },
+    load() { loadApps(); renderCalendar(); renderReminders(); loadCelestial(); },
   };
 })();

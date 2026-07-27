@@ -10,6 +10,10 @@ config/.cloud/
 # Runtime / generated
 data/
 discovered_devices.json
+rooms.json
+apps.json
+floorplan.json
+celestial_events.json
 setup/.setup_complete
 mediamtx/eufy-config.json
 

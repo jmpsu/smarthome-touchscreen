@@ -36,6 +36,10 @@ touch screen** (Lights → ＋ Add device / Rooms).
 - **Home map** — a sleek, top-down floor plan of your house (fully
   configurable). Tap a room to drill into just that room's lights and control
   color / brightness / on-off by touch.
+- **Celestial events** — auto-curated slides for the 1–2 major upcoming
+  meteor showers / sky events, with dates, where-to-look (constellation +
+  direction), best viewing time, and a themed hero image; peaks are dotted on
+  the calendar (see [`docs/CELESTIAL.md`](docs/CELESTIAL.md)).
 - **Lights / Scenes / Cameras / Info** — the unified device screens.
 - **Voice** — "Hey Siri…" via HomeKit is the primary control; an optional Apple
   Shortcut adds rich phrases like "dim the kitchen by 99%".

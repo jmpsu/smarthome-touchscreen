@@ -144,6 +144,75 @@ button { font-family: inherit; color: inherit; cursor: pointer; border: none; ba
 .welcome-clock { font-size: 72px; font-weight: 300; line-height: 1; letter-spacing: 1px; }
 .welcome-date { font-size: 18px; color: var(--muted); margin-top: 8px; }
 
+/* celestial event panel — hero image / themed starfield behind the text */
+.celestial-panel { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.cel-hero { position: absolute; inset: 0; z-index: 0; }
+.cel-hero .cel-img { width: 100%; height: 100%; object-fit: cover; }
+.celestial-panel .cel-body {
+  position: relative; z-index: 2; margin-top: auto; padding: 22px 24px;
+  background: linear-gradient(to top, rgba(5,7,12,.92) 30%, rgba(5,7,12,.4) 70%, transparent);
+}
+.cel-date { font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+.cel-where { font-size: 14px; margin: 6px 0 4px; }
+.cel-meta { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.cel-desc { font-size: 13px; color: #cdd4e0; line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.cel-credit { font-size: 10px; color: var(--muted); margin-top: 6px; opacity: .7; }
+
+/* themed starfield backgrounds (used when no photo, or behind a photo edge) */
+.celestial-panel, .cel-detail-hero {
+  background-color: #05070c;
+  background-image:
+    radial-gradient(1px 1px at 20% 30%, #fff, transparent),
+    radial-gradient(1px 1px at 70% 20%, #cfe0ff, transparent),
+    radial-gradient(1.5px 1.5px at 40% 60%, #fff, transparent),
+    radial-gradient(1px 1px at 85% 70%, #fff, transparent),
+    radial-gradient(1px 1px at 55% 85%, #bcd, transparent),
+    radial-gradient(1200px 400px at 80% -10%, #16233b 0%, transparent 60%);
+}
+.cat-meteor { background-image:
+    linear-gradient(115deg, transparent 40%, rgba(140,190,255,.18) 42%, transparent 44%),
+    linear-gradient(115deg, transparent 55%, rgba(200,220,255,.14) 57%, transparent 59%),
+    radial-gradient(1px 1px at 20% 30%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 60% 25%, #fff, transparent),
+    radial-gradient(1px 1px at 78% 62%, #cfe0ff, transparent),
+    radial-gradient(1000px 500px at 90% 120%, #101a2e, #05070c); }
+.cat-galaxy { background-image:
+    radial-gradient(60% 40% at 45% 45%, rgba(180,150,255,.35), rgba(120,90,200,.12) 45%, transparent 70%),
+    radial-gradient(1px 1px at 20% 30%, #fff, transparent),
+    radial-gradient(1px 1px at 75% 70%, #fff, transparent),
+    radial-gradient(1000px 600px at 50% 50%, #0b1020, #05070c); }
+.cat-planet { background-image:
+    radial-gradient(90px 90px at 72% 40%, #d9b382 0%, #9a6b3a 60%, transparent 62%),
+    radial-gradient(1px 1px at 20% 30%, #fff, transparent),
+    radial-gradient(1px 1px at 50% 70%, #fff, transparent),
+    radial-gradient(1000px 600px at 30% 120%, #101526, #05070c); }
+.cat-moon { background-image:
+    radial-gradient(120px 120px at 68% 42%, #eceadf 0%, #b9b6ad 65%, transparent 67%),
+    radial-gradient(1px 1px at 25% 35%, #fff, transparent),
+    radial-gradient(1000px 600px at 50% 120%, #0c1020, #05070c); }
+.cat-eclipse { background-image:
+    radial-gradient(110px 110px at 70% 42%, #05070c 55%, rgba(255,140,60,.6) 58%, transparent 66%),
+    radial-gradient(1px 1px at 25% 35%, #fff, transparent),
+    radial-gradient(1000px 600px at 50% 120%, #0c1020, #05070c); }
+
+/* celestial detail (modal) */
+.cel-detail { display: flex; flex-direction: column; height: 100%; }
+.cel-detail-hero { flex: 0 0 46%; border-radius: 16px; overflow: hidden; margin-bottom: 18px; }
+.cel-detail-text h1 { font-size: 30px; margin: 4px 0; }
+.cel-detail-text { max-width: 900px; }
+
+/* calendar celestial marker + sky line */
+.cal-day.sky { position: relative; }
+.cal-day.sky::after { content: ""; position: absolute; bottom: 1px; left: 50%; transform: translateX(-50%);
+  width: 4px; height: 4px; border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 6px var(--accent-2); }
+.cal-day.today.sky::after { background: #201400; box-shadow: none; }
+.sky-line { display: flex; gap: 10px; align-items: flex-start; font-size: 13px;
+  padding: 10px 12px; border-radius: 12px; margin-bottom: 8px;
+  background: linear-gradient(120deg, rgba(74,168,255,.14), rgba(74,168,255,.04));
+  border: 1px solid rgba(74,168,255,.25); }
+.sky-line .sky-ic { color: var(--accent-2); font-size: 16px; }
+
 /* X feed panel */
 .xfeed { display: flex; flex-direction: column; height: 100%; }
 .xfeed-scroll { flex: 1; overflow: hidden; border-radius: var(--radius-sm); background: #000; }

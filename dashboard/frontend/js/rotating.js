@@ -10,6 +10,7 @@
 (function () {
   let cfg = { rotate_seconds: 10, x_account: "", tides_enabled: false, tides_month_url: "" };
   let data = null;
+  let celestial = [];   // curated upcoming celestial event slides
   let idx = 0;
   let timer = null;
   const panels = []; // {el, kind}
@@ -28,8 +29,55 @@
   async function load() {
     try {
       const r = await fetch("/api/displays");
-      if (r.ok) { data = await r.json(); build(); }
+      if (r.ok) { data = await r.json(); }
     } catch (e) { console.warn("displays load failed", e); }
+    try {
+      const c = await fetch("/api/celestial");
+      if (c.ok) { celestial = (await c.json()).slides || []; }
+    } catch (e) { console.warn("celestial load failed", e); }
+    build();
+  }
+
+  // ---- celestial event slide (hero image + where/when to view) ----------
+  function panelCelestial(ev) {
+    const cat = ev.category || "meteor";
+    const hero = ev.image_url
+      ? `<img class="cel-img" src="${ev.image_url}" alt=""
+           onerror="this.style.display='none'">`
+      : "";
+    return `
+      <div class="celestial-panel cat-${cat}">
+        <div class="cel-hero">${hero}</div>
+        <div class="cel-body">
+          <div class="cel-date">${ev.dates_label || ""}</div>
+          <div class="rot-title">${ev.name}</div>
+          <div class="cel-where">📍 ${ev.where || ""}</div>
+          <div class="cel-meta">${ev.rate || ""}${ev.best_time ? " · Best: " + ev.best_time : ""}</div>
+          <div class="cel-desc">${ev.description || ""}</div>
+          ${ev.credit ? `<div class="cel-credit">${ev.credit}</div>` : ""}
+        </div>
+      </div>`;
+  }
+
+  function openCelestialDetail(ev) {
+    const body = $("#modal-body");
+    const cat = ev.category || "meteor";
+    const hero = ev.image_url
+      ? `<img src="${ev.image_url}" alt="" style="width:100%;height:100%;object-fit:cover"
+           onerror="this.style.display='none'">` : "";
+    body.innerHTML = `
+      <div class="cel-detail cat-${cat}">
+        <div class="cel-detail-hero">${hero}</div>
+        <div class="cel-detail-text">
+          <div class="cel-date">${ev.dates_label || ""}</div>
+          <h1>${ev.name}</h1>
+          <p class="cel-where">📍 ${ev.where || ""}</p>
+          <p class="muted">${ev.rate || ""}${ev.best_time ? " · Best viewing: " + ev.best_time : ""}${ev.constellation ? " · Radiant: " + ev.constellation : ""}</p>
+          <p style="margin-top:14px;line-height:1.6">${ev.description || ""}</p>
+          ${ev.credit ? `<p class="cel-credit">${ev.credit}</p>` : ""}
+        </div>
+      </div>`;
+    $("#modal").hidden = false;
   }
 
   // Always-available panel so the rotator is never empty on a fresh install.
@@ -167,6 +215,10 @@
 
     // Build the panel set dynamically from what the user has configured.
     const defs = [];
+    // Celestial events lead the rotation in the weeks before their peak.
+    celestial.forEach((ev) =>
+      defs.push({ kind: "celestial", html: panelCelestial(ev), ev })
+    );
     if (data && data.enabled) {
       defs.push({ kind: "tides", html: panelNext7(data.display1_next7days) });
       defs.push({ kind: "tides", html: panelTides(data.display2_tides || {}) });
@@ -179,7 +231,7 @@
       const p = document.createElement("div");
       p.className = "rot-panel" + (i === 0 ? " show" : "");
       p.innerHTML = def.html;
-      p.addEventListener("click", () => onTap(def.kind));
+      p.addEventListener("click", () => onTap(def));
       track.appendChild(p);
       panels.push({ el: p, kind: def.kind });
 
@@ -204,11 +256,13 @@
   }
   function stop() { if (timer) clearInterval(timer); }
 
-  function onTap(kind) {
-    if (kind === "x") {
+  function onTap(def) {
+    if (def.kind === "x") {
       window.open(`https://x.com/${cfg.x_account}`, "_blank");
-    } else if (kind === "tides") {
+    } else if (def.kind === "tides") {
       openMonth();
+    } else if (def.kind === "celestial") {
+      openCelestialDetail(def.ev);
     }
   }
 
