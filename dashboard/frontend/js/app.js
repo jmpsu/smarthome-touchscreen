@@ -129,7 +129,9 @@
 
     Rotating.init(CONFIG);
     if (window.Launcher) Launcher.load();
-    HA.connect();
+    // In demo mode there's no live HA websocket — poll the mock fleet instead.
+    if (CONFIG.demo_mode) HA.usePolling(1500);
+    else HA.connect();
 
     // keep the kiosk awake — nudge the browser so the screen never blanks
     setInterval(() => window.scrollTo(0, 0), 30000);

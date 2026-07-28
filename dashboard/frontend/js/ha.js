@@ -19,6 +19,18 @@
 
   HA.onState = (cb) => { HA._subs.push(cb); if (HA._ready) cb(HA.entities); };
 
+  // Demo / no-HA mode: poll the REST snapshot instead of the live websocket,
+  // so the full UI populates and every control reflects immediately.
+  HA.usePolling = function (intervalMs) {
+    const tick = async () => {
+      await loadSnapshot();
+      HA._ready = true;
+      emit();
+    };
+    tick();
+    setInterval(tick, intervalMs || 1500);
+  };
+
   HA.connect = function () {
     const proto = location.protocol === "https:" ? "wss" : "ws";
     const ws = new WebSocket(`${proto}://${location.host}/ha-ws`);

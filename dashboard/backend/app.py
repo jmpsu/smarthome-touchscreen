@@ -49,6 +49,7 @@ async def config():
         "x_account": os.getenv("X_ACCOUNT", "").lstrip("@"),
         "tides_enabled": bool(os.getenv("TIDES_WEEK_URL", "").strip()),
         "tides_month_url": os.getenv("TIDES_MONTH_URL", ""),
+        "demo_mode": ha.demo,
         "ha_healthy": await ha.healthy(),
     }
 
