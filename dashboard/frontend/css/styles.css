@@ -364,6 +364,24 @@ input[type=range].bri::-webkit-slider-thumb { background: var(--accent); }
 .cam-live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--bad); animation: pulse 1.4s infinite; }
 @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
 
+/* ------------------------------ MUSIC ---------------------------------- */
+.np { display: flex; gap: 28px; align-items: center; height: calc(100% - 58px); padding: 10px; }
+.np-art { width: 300px; height: 300px; flex: 0 0 auto; border-radius: 20px; overflow: hidden;
+  background: var(--glass-2); display: grid; place-items: center; font-size: 80px; color: var(--muted);
+  box-shadow: var(--shadow); }
+.np-art img { width: 100%; height: 100%; object-fit: cover; }
+.np-info { flex: 1; min-width: 0; }
+.np-title { font-size: 34px; font-weight: 600; }
+.np-artist { font-size: 18px; color: var(--muted); margin-top: 6px; }
+.np-controls { display: flex; align-items: center; gap: 18px; margin: 26px 0; }
+.np-btn { width: 60px; height: 60px; border-radius: 50%; background: var(--glass-2);
+  border: 1px solid var(--stroke-2); font-size: 22px; display: grid; place-items: center; }
+.np-btn.np-play { width: 76px; height: 76px; background: var(--accent); color: #201400; font-size: 28px; }
+.np-btn:active { transform: scale(.92); }
+.np-vol { display: flex; align-items: center; gap: 12px; max-width: 420px; }
+.np-vol .np-volume { flex: 1; }
+.np-src { margin-top: 14px; font-size: 13px; }
+
 /* ------------------------------ SETTINGS ------------------------------- */
 .settings-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; height: calc(100% - 58px); }
 .qr { width: 160px; height: 160px; background: #fff; border-radius: 14px; margin: 8px 0; display: grid; place-items: center; }

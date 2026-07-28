@@ -50,6 +50,8 @@ DEFAULT_APPS = {
                  "icon": "✦", "action": "screen:scenes"},
                 {"id": "cameras", "name": "Cameras", "desc": "Live views",
                  "icon": "📹", "action": "screen:cameras"},
+                {"id": "music", "name": "Music", "desc": "Spotify & playback",
+                 "icon": "🎵", "action": "screen:music"},
             ],
         },
         {

@@ -24,6 +24,8 @@
         <span class="ni">✦</span><span class="nl">Scenes</span></button>
       <button class="nav-btn" data-screen="cameras" aria-label="Cameras">
         <span class="ni">◉</span><span class="nl">Cameras</span></button>
+      <button class="nav-btn" data-screen="music" aria-label="Music">
+        <span class="ni">♫</span><span class="nl">Music</span></button>
       <button class="nav-btn" data-screen="displays" aria-label="Info">
         <span class="ni">≋</span><span class="nl">Info</span></button>
       <button class="nav-btn nav-bottom" data-screen="settings" aria-label="Settings">
@@ -110,6 +112,16 @@
         </div>
       </section>
 
+      <!-- ===================== MUSIC (Spotify) ===================== -->
+      <section class="screen" id="screen-music">
+        <header class="screen-head"><h1>Music</h1></header>
+        <div id="music-body"><!-- now playing injected --></div>
+        <div class="empty" id="music-empty" hidden>
+          No media player linked. Connect <b>Spotify</b> in <b>Setup → Open Home
+          Assistant</b> (one OAuth click), then it appears here.
+        </div>
+      </section>
+
       <!-- ===================== INFO / DISPLAYS ===================== -->
       <section class="screen" id="screen-displays">
         <header class="screen-head">
@@ -174,6 +186,7 @@
   <script src="/js/rooms.js"></script>
   <script src="/js/lights.js"></script>
   <script src="/js/cameras.js"></script>
+  <script src="/js/media.js"></script>
   <script src="/js/floorplan.js"></script>
   <script src="/js/launcher.js"></script>
   <script src="/js/settings.js"></script>
