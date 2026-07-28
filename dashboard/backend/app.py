@@ -24,6 +24,7 @@ from . import rooms as rooms_store
 from . import store
 from . import tides
 from . import voice as voice_mod
+from . import weather as weather_mod
 from .ha_client import HAClient
 
 BASE = Path(__file__).resolve().parent.parent
@@ -242,6 +243,15 @@ async def displays():
         return await tides.get_displays()
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=502)
+
+
+@app.get("/api/weather")
+async def weather():
+    """Current conditions + 6-day forecast + pollen for the weather displays."""
+    try:
+        return await weather_mod.get_weather()
+    except Exception as e:
+        return JSONResponse({"enabled": False, "error": str(e)}, status_code=502)
 
 
 @app.get("/api/celestial")

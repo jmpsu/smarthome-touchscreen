@@ -213,6 +213,35 @@ button { font-family: inherit; color: inherit; cursor: pointer; border: none; ba
   border: 1px solid rgba(74,168,255,.25); }
 .sky-line .sky-ic { color: var(--accent-2); font-size: 16px; }
 
+/* weather / radar / pollen panels */
+.wx-now { display: flex; align-items: center; gap: 22px; margin: 8px 0 14px; }
+.wx-big { font-size: 46px; font-weight: 300; white-space: nowrap; }
+.wx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 18px; font-size: 13px; }
+.wx-forecast { display: flex; gap: 10px; }
+.wx-day { flex: 1; text-align: center; padding: 8px 4px; border-radius: 12px; background: var(--glass-2); font-size: 12px; }
+.wx-day .wx-ic { display: block; font-size: 20px; margin: 4px 0; }
+.wx-hl { font-size: 13px; }
+.radar-panel { position: absolute; inset: 0; }
+.radar-frame { width: 100%; height: 100%; border: 0; }
+.radar-cap { position: absolute; left: 14px; top: 12px; padding: 6px 12px; border-radius: 999px;
+  background: rgba(0,0,0,.55); font-size: 13px; backdrop-filter: blur(6px); }
+.pollen { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.pollen-row { display: grid; grid-template-columns: 90px 1fr 48px; align-items: center; gap: 10px; font-size: 14px; }
+.pollen-bar { height: 10px; border-radius: 999px; background: #2a323f; position: relative; }
+.pollen-bar.low::after, .pollen-bar.med::after, .pollen-bar.high::after {
+  content: ""; position: absolute; inset: 0; border-radius: 999px; }
+.pollen-bar.low::after { width: 33%; background: var(--good); }
+.pollen-bar.med::after { width: 66%; background: var(--accent); }
+.pollen-bar.high::after { width: 100%; background: var(--bad); }
+.pollen-val { text-align: right; color: var(--muted); }
+
+/* launcher weather widget */
+.launch-weather { margin-top: 12px; border-top: 1px solid var(--stroke); padding-top: 12px; }
+.lw-now { font-size: 24px; font-weight: 300; }
+.lw-now .muted { font-size: 13px; margin-left: 8px; }
+.lw-forecast { display: flex; gap: 8px; margin-top: 10px; }
+.lw-day { flex: 1; text-align: center; font-size: 12px; color: var(--muted); }
+
 /* X feed panel */
 .xfeed { display: flex; flex-direction: column; height: 100%; }
 .xfeed-scroll { flex: 1; overflow: hidden; border-radius: var(--radius-sm); background: #000; }

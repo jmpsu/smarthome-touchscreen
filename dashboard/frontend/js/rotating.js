@@ -11,6 +11,7 @@
   let cfg = { rotate_seconds: 10, x_account: "", tides_enabled: false, tides_month_url: "" };
   let data = null;
   let celestial = [];   // curated upcoming celestial event slides
+  let wx = null;        // weather / conditions / pollen
   let idx = 0;
   let timer = null;
   const panels = []; // {el, kind}
@@ -35,7 +36,83 @@
       const c = await fetch("/api/celestial");
       if (c.ok) { celestial = (await c.json()).slides || []; }
     } catch (e) { console.warn("celestial load failed", e); }
+    try {
+      const w = await fetch("/api/weather");
+      if (w.ok) { const j = await w.json(); wx = j.enabled ? j : null; }
+    } catch (e) { console.warn("weather load failed", e); }
     build();
+  }
+
+  const WICON = (code) => {
+    if (code === 0 || code === 1) return "☀";
+    if (code === 2) return "⛅";
+    if (code === 3) return "☁";
+    if ([45, 48].includes(code)) return "🌫";
+    if (code >= 51 && code <= 67) return "🌧";
+    if (code >= 71 && code <= 77) return "❄";
+    if (code >= 80 && code <= 82) return "🌦";
+    if (code >= 95) return "⛈";
+    return "☁";
+  };
+
+  const DOW = (iso) =>
+    new Date(iso + "T00:00:00").toLocaleDateString("en-US", { weekday: "short" });
+
+  // Current conditions panel
+  function panelWeather(w) {
+    const c = w.current || {};
+    const fc = (w.forecast || []).slice(0, 5).map((d) =>
+      `<div class="wx-day"><span>${DOW(d.date)}</span>
+        <span class="wx-ic">${WICON(d.code)}</span>
+        <span class="wx-hl">${d.hi}°<span class="muted">/${d.lo}°</span></span></div>`
+    ).join("");
+    return `
+      <div class="rot-title">Current Conditions</div>
+      <div class="rot-sub">${c.summary || ""}</div>
+      <div class="wx-now">
+        <div class="wx-big">${WICON(c.code)} ${c.temp}°</div>
+        <div class="wx-grid">
+          <div><span class="muted">Feels</span> ${c.feels_like}°</div>
+          <div><span class="muted">Humidity</span> ${c.humidity}%</div>
+          <div><span class="muted">Wind</span> ${c.wind} mph</div>
+          <div><span class="muted">UV</span> ${c.uv}</div>
+          <div><span class="muted">Pressure</span> ${c.pressure} hPa</div>
+          <div><span class="muted">Rain</span> ${c.precip ?? 0} in</div>
+        </div>
+      </div>
+      <div class="wx-forecast">${fc}</div>`;
+  }
+
+  // Pollen panel (from the "Current conditions" reference)
+  function panelPollen(w) {
+    const p = w.pollen || {};
+    const row = (name, v, thresh) => {
+      const val = v == null ? "n/a" : Math.round(v);
+      const lvl = v == null ? "" : v > thresh ? "high" : v > thresh / 2 ? "med" : "low";
+      return `<div class="pollen-row"><span>${name}</span>
+        <span class="pollen-bar ${lvl}"></span>
+        <span class="pollen-val">${val}</span></div>`;
+    };
+    return `
+      <div class="rot-title">Pollen Levels</div>
+      <div class="rot-sub">grains/m³ · tap for radar</div>
+      <div class="pollen">
+        ${row("Grass", p.grass, 18)}
+        ${row("Ragweed", p.ragweed, 45)}
+        ${row("Tree", p.tree, 75)}
+        ${row("Mold", p.mold, 6500)}
+      </div>`;
+  }
+
+  // Radar panel — Windy embed centered on the user's coordinates
+  function panelRadar(w) {
+    const { lat, lon } = w.coords || {};
+    return `
+      <div class="radar-panel">
+        <iframe class="radar-frame" loading="lazy"
+          src="https://embed.windy.com/embed2.html?lat=${lat}&lon=${lon}&zoom=7&level=surface&overlay=radar&menu=&message=&marker=&calendar=&pressure=&type=map&location=coordinates&detail=&metricWind=mph&metricTemp=%C2%B0F&radarRange=-1"></iframe>
+        <div class="radar-cap">Weather Radar</div>
+      </div>`;
   }
 
   // ---- celestial event slide (hero image + where/when to view) ----------
@@ -215,6 +292,12 @@
 
     // Build the panel set dynamically from what the user has configured.
     const defs = [];
+    // Weather / radar / pollen
+    if (wx) {
+      defs.push({ kind: "weather", html: panelWeather(wx) });
+      defs.push({ kind: "radar", html: panelRadar(wx) });
+      defs.push({ kind: "pollen", html: panelPollen(wx) });
+    }
     // Celestial events lead the rotation in the weeks before their peak.
     celestial.forEach((ev) =>
       defs.push({ kind: "celestial", html: panelCelestial(ev), ev })
@@ -263,7 +346,18 @@
       openMonth();
     } else if (def.kind === "celestial") {
       openCelestialDetail(def.ev);
+    } else if (["weather", "radar", "pollen"].includes(def.kind)) {
+      openRadar();
     }
+  }
+
+  function openRadar() {
+    if (!wx || !wx.coords) return;
+    const { lat, lon } = wx.coords;
+    $("#modal-body").innerHTML =
+      `<iframe style="width:100%;height:100%;border:0;border-radius:12px"
+        src="https://embed.windy.com/embed2.html?lat=${lat}&lon=${lon}&zoom=8&overlay=radar&metricWind=mph&metricTemp=%C2%B0F&type=map"></iframe>`;
+    $("#modal").hidden = false;
   }
 
   // ---- month drill-down modal -------------------------------------------

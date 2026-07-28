@@ -137,7 +137,32 @@
     });
   }
 
+  const WICON = (code) => {
+    if ([0, 1].includes(code)) return "☀"; if (code === 2) return "⛅";
+    if (code === 3) return "☁"; if ([45, 48].includes(code)) return "🌫";
+    if (code >= 51 && code <= 67) return "🌧"; if (code >= 71 && code <= 77) return "❄";
+    if (code >= 80 && code <= 82) return "🌦"; if (code >= 95) return "⛈"; return "☁";
+  };
+
+  async function loadWeather() {
+    const host = document.getElementById("launch-weather");
+    if (!host) return;
+    try {
+      const w = await (await fetch("/api/weather")).json();
+      if (!w.enabled || !w.current) { host.innerHTML = ""; return; }
+      const c = w.current;
+      const days = (w.forecast || []).slice(1, 6).map((d) =>
+        `<span class="lw-day">${new Date(d.date + "T00:00:00")
+          .toLocaleDateString("en-US", { weekday: "short" })}<br>
+          ${WICON(d.code)}<br>${d.hi}°</span>`).join("");
+      host.innerHTML = `
+        <div class="lw-now">${WICON(c.code)} ${c.temp}°
+          <span class="muted">${c.summary}</span></div>
+        <div class="lw-forecast">${days}</div>`;
+    } catch (e) { host.innerHTML = ""; }
+  }
+
   window.Launcher = {
-    load() { loadApps(); renderCalendar(); renderReminders(); loadCelestial(); },
+    load() { loadApps(); renderCalendar(); renderReminders(); loadCelestial(); loadWeather(); },
   };
 })();
