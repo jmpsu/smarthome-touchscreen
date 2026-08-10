@@ -1,29 +1,19 @@
-# Secrets — NEVER commit real credentials
+# Local configuration
+.claude/
+.serena/
 .env
-*.secret
-secrets.yaml
-homekit.state
-config/.storage/
-config/home-assistant.log*
-config/.cloud/
-
-# Runtime / generated
-data/
-discovered_devices.json
-rooms.json
-apps.json
-floorplan.json
-celestial_events.json
-setup/.setup_complete
-mediamtx/eufy-config.json
-
-# Python
+.env.local
+*.log
 __pycache__/
 *.pyc
-.venv/
-venv/
-
-# Node / misc
 node_modules/
 .DS_Store
-*.log
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+dist/
+build/
+.cache/
+.headroom/
