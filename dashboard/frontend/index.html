@@ -154,17 +154,39 @@
             <div class="sys-row"><span>Dashboard</span><span class="dot ok">online</span></div>
             <a class="pill ghost" href="http://localhost:8123" target="_blank">Open Home Assistant</a>
           </div>
-          <div class="card">
+          <div class="card card-wide">
             <div class="card-title">Voice (Siri / HomePod)</div>
-            <p class="muted">Primary control is “Hey Siri…” via HomeKit. For richer
-              phrases, an Apple Shortcut can send dictated text here. Test a phrase:</p>
-            <div style="display:flex;gap:8px;margin:10px 0">
+            <p class="note">
+              <b>Nothing about the wording is fixed.</b> A rule is a list of phrases you
+              invent and the thing they do. <code>{target}</code> stands for any room or
+              light name, <code>{value}</code> for a number or colour. Edit a rule, press
+              <b>Build Siri phrases</b>, drop the file in Home Assistant, and the HomePods
+              answer to your words.
+            </p>
+            <div class="row-actions">
+              <button class="pill" id="rule-add">Add a rule</button>
+              <button class="pill ghost" id="rule-build">Build Siri phrases</button>
+              <button class="pill ghost" id="rule-reset">Reset to defaults</button>
+              <span id="rule-status" class="muted"></span>
+            </div>
+
+            <div class="field-label">Try a phrase</div>
+            <div style="display:flex;gap:8px;margin:6px 0 16px">
               <input id="voice-input" class="text-input"
-                placeholder="e.g. dim the kitchen lights by 99%" />
-              <button class="pill" id="voice-test">Test</button>
+                placeholder="e.g. dim the couch lamp to 20" />
+              <button class="pill ghost" id="voice-test">Test</button>
             </div>
             <div id="voice-result" class="muted"></div>
-            <p class="muted" style="margin-top:10px">Setup guide: <b>docs/VOICE.md</b></p>
+
+            <div class="field-label" style="margin-top:18px">Rules</div>
+            <div id="rule-list" class="rule-list"></div>
+
+            <p class="note" style="margin-top:16px">
+              Two ways these reach a HomePod: <b>1.</b> Pair Home Assistant to Apple Home
+              and Siri controls every light by its name with no setup. <b>2.</b> For your
+              own wording, the generated file adds sentence triggers to Home Assistant
+              Assist and gives you the Shortcuts recipe that lets Siri speak them.
+            </p>
           </div>
         </div>
       </section>

@@ -448,3 +448,74 @@ input[type=range].bri::-webkit-slider-thumb { background: var(--accent); }
 /* thin scrollbars for touch */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 8px; }
+
+/* ---- Voice rules editor (Settings > Voice) -------------------------------- */
+.card-wide { grid-column: 1 / -1; }
+
+.note {
+  border-left: 2px solid var(--accent, #2fd6c3);
+  background: rgba(47, 214, 195, .06);
+  padding: 12px 14px;
+  border-radius: 0 10px 10px 0;
+  color: var(--text-dim, #9aa3b2);
+  line-height: 1.5;
+  margin: 4px 0 14px;
+}
+.note code {
+  background: rgba(255, 255, 255, .07);
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: .92em;
+}
+
+.row-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+.field-label {
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-size: 11px;
+  color: var(--text-dim, #9aa3b2);
+  margin: 12px 0 6px;
+}
+
+.rule-list { display: flex; flex-direction: column; gap: 12px; }
+
+.rule {
+  background: rgba(255, 255, 255, .03);
+  border: 1px solid rgba(255, 255, 255, .07);
+  border-radius: 14px;
+  padding: 14px;
+}
+.rule-head { display: flex; gap: 10px; align-items: center; }
+.rule-head .pill.danger { margin-left: auto; }
+
+.select, .text-area {
+  background: rgba(255, 255, 255, .05);
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 10px;
+  color: var(--text, #e8ecf4);
+  padding: 10px 12px;
+  font: inherit;
+}
+.select { min-width: 150px; }
+.text-area {
+  width: 100%;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.select:focus, .text-area:focus, .text-input:focus {
+  outline: none;
+  border-color: var(--accent, #2fd6c3);
+}
+
+.pill.danger {
+  color: #ff6b5e;
+  border-color: rgba(255, 107, 94, .45);
+  background: transparent;
+}
+.pill.danger:hover { background: rgba(255, 107, 94, .12); }
+
+.muted.ok  { color: var(--accent, #2fd6c3); }
+.muted.bad { color: #ff6b5e; }

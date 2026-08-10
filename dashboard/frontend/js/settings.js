@@ -85,7 +85,133 @@
     }
   });
 
+  /* ---------------------------------------------------------------------
+     Voice rules editor. The rule set is the user's own phrase book; the
+     server validates actions, so an unknown one can never be saved.
+     --------------------------------------------------------------------- */
+  let RULES = [];
+  let ACTIONS = [];
+  let SCENES = [];
+
+  function status(msg, ok = true) {
+    const el = document.getElementById("rule-status");
+    if (!el) return;
+    el.textContent = msg;
+    el.className = ok ? "muted ok" : "muted bad";
+    if (msg) setTimeout(() => { el.textContent = ""; }, 2500);
+  }
+
+  async function loadRules() {
+    try {
+      const d = await (await fetch("/api/voice/rules")).json();
+      RULES = d.rules || [];
+      ACTIONS = d.actions || [];
+      SCENES = d.scenes || [];
+      renderRules();
+    } catch (e) {
+      status("Could not load rules", false);
+    }
+  }
+
+  async function saveRules() {
+    try {
+      const r = await fetch("/api/voice/rules", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rules: RULES }),
+      });
+      const d = await r.json();
+      status(r.ok ? "Saved" : (d.error || "Save failed"), r.ok);
+    } catch (e) {
+      status("Save failed", false);
+    }
+  }
+
+  function needsScene(actionId) {
+    const a = ACTIONS.find((x) => x.id === actionId);
+    return !!(a && a.needs && a.needs.includes("scene"));
+  }
+
+  function renderRules() {
+    const host = document.getElementById("rule-list");
+    if (!host) return;
+    host.innerHTML = "";
+    RULES.forEach((rule, i) => {
+      const card = document.createElement("div");
+      card.className = "rule";
+
+      const actionOpts = ACTIONS.map(
+        (a) => `<option value="${a.id}" ${a.id === rule.action ? "selected" : ""}>${a.label}</option>`
+      ).join("");
+
+      // Scene picker only appears for actions that actually need one, and
+      // always offers the saved value even if HA has not reported it yet.
+      const sceneNames = SCENES.includes(rule.scene) || !rule.scene
+        ? SCENES : [rule.scene, ...SCENES];
+      const sceneOpts = sceneNames.map(
+        (s) => `<option value="${s}" ${s === rule.scene ? "selected" : ""}>${s}</option>`
+      ).join("");
+
+      card.innerHTML = `
+        <div class="rule-head">
+          <select class="select" data-i="${i}" data-k="action">${actionOpts}</select>
+          ${needsScene(rule.action)
+            ? `<select class="select" data-i="${i}" data-k="scene">${sceneOpts}</select>`
+            : ""}
+          <button class="pill danger" data-del="${i}">Remove</button>
+        </div>
+        <div class="field-label">Phrases — comma separated</div>
+        <textarea class="text-area" data-i="${i}" data-k="phrases"
+          rows="2">${(rule.phrases || []).join(", ")}</textarea>`;
+      host.appendChild(card);
+    });
+
+    host.querySelectorAll("[data-del]").forEach((b) =>
+      b.addEventListener("click", () => {
+        RULES.splice(+b.dataset.del, 1);
+        renderRules();
+        saveRules();
+      })
+    );
+
+    host.querySelectorAll("select[data-k], textarea[data-k]").forEach((el) =>
+      el.addEventListener("change", () => {
+        const rule = RULES[+el.dataset.i];
+        if (el.dataset.k === "phrases") {
+          rule.phrases = el.value.split(",").map((s) => s.trim()).filter(Boolean);
+        } else {
+          rule[el.dataset.k] = el.value;
+          // Switching to/from a scene action changes which controls apply.
+          if (el.dataset.k === "action") {
+            if (needsScene(rule.action)) rule.scene = rule.scene || SCENES[0] || "";
+            else delete rule.scene;
+            renderRules();
+          }
+        }
+        saveRules();
+      })
+    );
+  }
+
+  document.getElementById("rule-add")?.addEventListener("click", () => {
+    RULES.push({ action: "turn_on", phrases: [] });
+    renderRules();
+    saveRules();
+  });
+
+  document.getElementById("rule-reset")?.addEventListener("click", async () => {
+    if (!confirm("Replace your rules with the defaults?")) return;
+    await fetch("/api/voice/rules/reset", { method: "POST" });
+    await loadRules();
+    status("Reset to defaults");
+  });
+
+  // Downloads the Home Assistant custom_sentences file for the current rules.
+  document.getElementById("rule-build")?.addEventListener("click", () => {
+    window.location.href = "/api/voice/sentences";
+    status("Built panel.yaml");
+  });
+
   window.Settings = {
-    load() { loadHomeKit(); loadDiscovered(); loadHealth(); },
+    load() { loadHomeKit(); loadDiscovered(); loadHealth(); loadRules(); },
   };
 })();
