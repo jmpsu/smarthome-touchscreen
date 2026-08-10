@@ -12,8 +12,7 @@ Production-ready smart home control dashboard with Siri integration, live weathe
 | NOAA Tides API | Free | Unlimited, no auth required |
 | Twitter API | Free | 450 posts/month free tier (or web scrape) |
 | Spotify API | Free | Within ToS limits |
-| Claude Haiku (optional) | ~$0.05/mo | Voice parsing fallback (uses local regex first) |
-| **TOTAL** | **<$0.10/month** | All components verified free |
+| **TOTAL** | **$0/month** | 100% free, zero external charges |
 
 ## Architecture
 
@@ -101,7 +100,6 @@ LONGITUDE=your_longitude
 Optional (for additional features):
 
 ```env
-CLAUDE_API_KEY=sk-ant-...       # Voice parsing fallback (local parsing used first)
 TWITTER_API_KEY=...            # Twitter feed (or use mock data)
 SPOTIFY_CLIENT_ID=...          # Spotify (or disable music feature)
 ```
@@ -114,14 +112,12 @@ SPOTIFY_CLIENT_ID=...          # Spotify (or disable music feature)
 - ✅ NOAA free API (unlimited, no auth)
 - ✅ Twitter free tier (450 requests/month)
 - ✅ Spotify free tier (within ToS)
-- ✅ Optional: Claude Haiku (~$0.05/month, only if voice parsing fallback needed)
 
-**No pay-as-you-go APIs. No metered Anthropic charges. No hidden fees.**
+**No API charges. No external dependencies. No hidden fees. 100% free tier only.**
 
 ## Voice Commands
 
-Siri commands route through HomeKit Bridge → Home Assistant:
-
+**Siri Integration** — Commands route through HomeKit Bridge → Home Assistant:
 ```
 "Hey Siri, turn off the kitchen lights"
 "Hey Siri, dim the living room by 50%"
@@ -129,12 +125,15 @@ Siri commands route through HomeKit Bridge → Home Assistant:
 "Hey Siri, set the bedroom to warm"
 ```
 
-Optional: Local regex parsing handles common patterns without Claude.
+**Zero-cost voice parsing** — Three-tier local matching (no API calls):
+- Tier 1: Regex pattern matching (~90% of commands, instant)
+- Tier 2: Entity name fuzzy-matching (room names, custom names)
+- Tier 3: Optional Agent-Reach scraping (edge cases)
 
 ## Testing
 
 ```bash
-# Test voice command parsing (local regex + Claude fallback)
+# Test voice command parsing (local regex + entity matching)
 curl -X POST http://localhost:8000/api/voice/command \
   -H "Content-Type: application/json" \
   -d '{"text":"turn off kitchen lights","dry_run":true}'

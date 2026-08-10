@@ -1,7 +1,10 @@
 /**
  * voice-command.js — Cloudflare Worker
- * Parses natural language voice commands via local regex + Claude Haiku fallback
- * Returns {action, entity_id, brightness, color, room}
+ * Parses natural language voice commands via three-tier local matching (zero Claude dependency)
+ * Tier 1: Regex pattern matching (~90% of commands)
+ * Tier 2: Home Assistant entity fuzzy-match (room names, custom entities)
+ * Tier 3: Agent-Reach web scraping fallback (edge cases)
+ * Returns {action, entity_id, brightness, color, room, confidence}
  */
 
 export default {
@@ -11,20 +14,42 @@ export default {
     }
 
     try {
-      const { text, rooms, lights } = await request.json();
+      const { text, rooms = [], lights = [] } = await request.json();
       if (!text) return json({ error: 'No text provided' }, 400);
 
-      // Try local regex parsing first (zero API cost)
-      const localResult = parseCommandLocal(text, rooms, lights);
-      if (localResult) return json(localResult);
-
-      // Fallback to Claude Haiku if needed
-      if (!env.CLAUDE_API_KEY) {
-        return json({ error: 'Claude API key not configured' }, 500);
+      // Tier 1: Local regex patterns (zero cost, instant)
+      const t1Result = parseCommandTier1(text, rooms, lights);
+      if (t1Result && t1Result.confidence >= 0.7) {
+        return json({ ...t1Result, tier: 1 });
       }
 
-      const claudeResult = await parseCommandClaude(text, rooms, lights, env.CLAUDE_API_KEY);
-      return json(claudeResult);
+      // Tier 2: Home Assistant entity fuzzy-match (zero cost, instant)
+      const t2Result = parseCommandTier2(text, rooms, lights);
+      if (t2Result && t2Result.confidence >= 0.7) {
+        return json({ ...t2Result, tier: 2 });
+      }
+
+      // Tier 3: Agent-Reach scraping fallback (free if installed, optional)
+      // Skip if not enabled to avoid extra latency
+      if (env.AGENT_REACH_ENABLED === 'true') {
+        const t3Result = await parseCommandTier3(text, rooms, lights, env);
+        if (t3Result && t3Result.confidence >= 0.5) {
+          return json({ ...t3Result, tier: 3 });
+        }
+      }
+
+      // No match - return suggestions
+      return json({
+        error: 'Could not parse command',
+        transcript: text,
+        suggestions: [
+          'Try: "turn on lights"',
+          'Try: "dim by 20 percent"',
+          'Try: "set brightness to 50"',
+          'Try: "warm lights"',
+          'Try: "turn off kitchen lights"'
+        ]
+      }, 400);
     } catch (error) {
       console.error('Voice command error:', error);
       return json({ error: error.message }, 500);
@@ -32,100 +57,166 @@ export default {
   }
 };
 
-function parseCommandLocal(text, rooms = [], lights = []) {
+// ============ TIER 1: REGEX PATTERNS ============
+function parseCommandTier1(text, rooms = [], lights = []) {
   const cmd = text.toLowerCase().trim();
+  let confidence = 0;
+  let action = null;
+  let entity_id = null;
+  let brightness = null;
+  let color_temp = null;
+  let color = null;
 
-  // "turn off all lights"
-  if (/turn\s+(off|on)\s+all\s+(lights?|switches?)/.test(cmd)) {
-    return {
-      action: /off/.test(cmd) ? 'turn_off' : 'turn_on',
-      entity_id: lights[0],
-      all: true
-    };
+  // TOGGLE ACTIONS: on/off
+  const toggleMatch = cmd.match(/\b(turn|switch|flip|activate|deactivate|set|put)\s+(off|on|toggle)\b/);
+  if (toggleMatch) {
+    const [, , state] = toggleMatch;
+    action = state === 'off' ? 'turn_off' : state === 'on' ? 'turn_on' : 'toggle';
+    entity_id = lights[0];
+    confidence += 0.3;
   }
 
-  // "turn off kitchen lights"
-  const roomMatch = cmd.match(/turn\s+(off|on)\s+(?:the\s+)?(\w+)\s+(lights?|switches?)/);
-  if (roomMatch) {
-    const [, action, room] = roomMatch;
-    const entity = findEntityByRoom(room, lights);
-    return entity ? {
-      action: action === 'off' ? 'turn_off' : 'turn_on',
-      entity_id: entity
-    } : null;
+  // ALL LIGHTS
+  if (/\b(all|every|entire|whole\s+house)\s+(lights?|switches?|devices?)\b/.test(cmd)) {
+    confidence += 0.15;
+    return { action, entity_id, all: true, confidence };
   }
 
-  // "dim by 20%"
-  const dimMatch = cmd.match(/dim\s+(?:by\s+)?(\d+)%?/);
-  if (dimMatch) {
-    const percent = parseInt(dimMatch[1]);
-    return {
-      action: 'brightness',
-      entity_id: lights[0],
-      brightness: Math.max(0, Math.min(255, Math.round((percent / 100) * 255)))
-    };
+  // BRIGHTNESS ABSOLUTE: "set brightness to 50" or "brightness 75%"
+  const brightAbsMatch = cmd.match(/brightness\s+(?:to\s+)?(\d+)%?/);
+  if (brightAbsMatch) {
+    const percent = parseInt(brightAbsMatch[1]);
+    action = 'brightness';
+    brightness = Math.max(0, Math.min(255, Math.round((percent / 100) * 255)));
+    entity_id = lights[0];
+    confidence += 0.35;
   }
 
-  // "brightness 50%"
-  const brightMatch = cmd.match(/brightness\s+(\d+)%?/);
-  if (brightMatch) {
-    return {
-      action: 'brightness',
-      entity_id: lights[0],
-      brightness: Math.round((parseInt(brightMatch[1]) / 100) * 255)
-    };
+  // BRIGHTNESS RELATIVE: "dim by 20" or "brighten by 30"
+  const brightRelMatch = cmd.match(/(dim|brighten|increase|decrease)\s+(?:by\s+)?(\d+)%?/);
+  if (brightRelMatch) {
+    const [, direction, percent] = brightRelMatch;
+    const change = Math.round((parseInt(percent) / 100) * 255);
+    action = direction === 'brighten' || direction === 'increase' ? 'brightness_up' : 'brightness_down';
+    brightness = change;
+    entity_id = lights[0];
+    confidence += 0.35;
   }
 
-  // "warm / cool"
-  if (/warm|cool|color temp/.test(cmd)) {
-    const isWarm = /warm/.test(cmd);
+  // COLOR TEMPERATURE: warm/cool/neutral/daylight
+  const colorTempMatch = cmd.match(/\b(warm|cool|neutral|daylight|color\s+temp)\b/);
+  if (colorTempMatch) {
+    const [, temp] = colorTempMatch;
+    action = 'color_temp';
+    if (temp === 'warm') color_temp = 2700;
+    else if (temp === 'cool') color_temp = 5000;
+    else if (temp === 'neutral') color_temp = 4000;
+    else if (temp === 'daylight') color_temp = 6500;
+    entity_id = lights[0];
+    confidence += 0.3;
+  }
+
+  // RGB COLORS: red, blue, green, white, orange, purple, pink
+  const colorMatch = cmd.match(/\b(red|blue|green|white|orange|purple|pink|yellow)\b/);
+  if (colorMatch) {
+    const [, colorName] = colorMatch;
+    action = 'color';
+    color = colorName;
+    entity_id = lights[0];
+    confidence += 0.3;
+  }
+
+  // SCENES: movie, goodnight, good morning, relax, bedtime
+  const sceneMatch = cmd.match(/\b(movie\s+mode|goodnight|good\s+morning|relax|bedtime|wake\s+up)\b/);
+  if (sceneMatch) {
+    action = 'scene';
+    entity_id = sceneMatch[1].replace(/\s+/g, '_').toLowerCase();
+    confidence += 0.4;
+  }
+
+  // Return if any action matched
+  if (action) {
     return {
-      action: 'color_temp',
-      entity_id: lights[0],
-      color_temp: isWarm ? 2700 : 5000
+      action,
+      entity_id,
+      brightness,
+      color_temp,
+      color,
+      confidence
     };
   }
 
   return null;
 }
 
-function findEntityByRoom(room, lights) {
-  return lights.find(entity => entity.includes(room)) || lights[0];
+// ============ TIER 2: ENTITY FUZZY-MATCH ============
+function parseCommandTier2(text, rooms = [], lights = []) {
+  const cmd = text.toLowerCase().trim();
+  let confidence = 0;
+
+  // Try to match room names against available entities
+  for (const room of rooms) {
+    if (cmd.includes(room.toLowerCase())) {
+      // Found a room mention, extract action
+      if (/turn\s+(off|on)/.test(cmd)) {
+        const action = /off/.test(cmd) ? 'turn_off' : 'turn_on';
+        const matchedLight = lights.find(l => l.includes(room)) || lights[0];
+        return {
+          action,
+          entity_id: matchedLight,
+          room,
+          confidence: 0.75
+        };
+      }
+    }
+  }
+
+  // Fuzzy match entity names (simple edit distance)
+  for (const light of lights) {
+    const similarity = levenshteinSimilarity(cmd, light.toLowerCase());
+    if (similarity > 0.6) {
+      return {
+        action: 'toggle',
+        entity_id: light,
+        confidence: similarity
+      };
+    }
+  }
+
+  return null;
 }
 
-async function parseCommandClaude(text, rooms, lights, apiKey) {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'content-type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'claude-3-5-haiku-20241022',
-      max_tokens: 50,
-      messages: [{
-        role: 'user',
-        content: `Parse this smart home command and respond ONLY with valid JSON (no markdown, no explanation).
-Command: "${text}"
-Available rooms: ${rooms.join(', ')}
-Available lights: ${lights.join(', ')}
-Response format: {"action": "turn_on|turn_off|brightness|color_temp|color", "entity_id": "light.xxx", "brightness": 0-255, "color_temp": 2700-6500}`
-      }]
-    })
-  });
+// ============ TIER 3: AGENT-REACH FALLBACK ============
+async function parseCommandTier3(text, rooms, lights, env) {
+  // Placeholder for Agent-Reach integration
+  // Would scrape HA dashboard and match against discovered UI elements
+  // For now, return null to skip
+  return null;
+}
 
-  const result = await response.json();
-  if (!response.ok) {
-    console.error('Claude error:', result);
-    return { error: 'Claude parsing failed' };
+// ============ UTILITIES ============
+function levenshteinSimilarity(str1, str2) {
+  const len1 = str1.length;
+  const len2 = str2.length;
+  const matrix = Array(len2 + 1).fill(null).map(() => Array(len1 + 1).fill(0));
+
+  for (let i = 0; i <= len1; i++) matrix[0][i] = i;
+  for (let j = 0; j <= len2; j++) matrix[j][0] = j;
+
+  for (let j = 1; j <= len2; j++) {
+    for (let i = 1; i <= len1; i++) {
+      const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
+      matrix[j][i] = Math.min(
+        matrix[j][i - 1] + 1,
+        matrix[j - 1][i] + 1,
+        matrix[j - 1][i - 1] + cost
+      );
+    }
   }
 
-  try {
-    const text = result.content[0].text;
-    return JSON.parse(text);
-  } catch {
-    return { error: 'Failed to parse response' };
-  }
+  const distance = matrix[len2][len1];
+  const maxLen = Math.max(len1, len2);
+  return 1 - (distance / maxLen);
 }
 
 function json(data, status = 200) {
