@@ -1,0 +1,78 @@
+name: Route panel.joeysvault.app to backend
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: route-panel-hostname
+  cancel-in-progress: false
+
+jobs:
+  route:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST || '85.239.249.175' }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_PASSWORD: ${{ secrets.VPS_PASSWORD }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          set -euo pipefail
+          port="${VPS_SSH_PORT:-22}"
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+
+          ssh-keyscan -p "$port" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          chmod 600 ~/.ssh/known_hosts
+
+          if [ -n "$VPS_SSH_KEY" ]; then
+            printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_deploy
+            chmod 600 ~/.ssh/id_deploy
+            echo "SSH_OPTS=-i $HOME/.ssh/id_deploy -p $port -o BatchMode=yes" >> "$GITHUB_ENV"
+            echo "SCP_OPTS=-i $HOME/.ssh/id_deploy -P $port -o BatchMode=yes" >> "$GITHUB_ENV"
+            echo "SSH_RUNNER=" >> "$GITHUB_ENV"
+          else
+            sudo apt-get update -qq && sudo apt-get install -y -qq sshpass
+            echo "SSH_OPTS=-p $port" >> "$GITHUB_ENV"
+            echo "SCP_OPTS=-P $port" >> "$GITHUB_ENV"
+            echo "SSH_RUNNER=sshpass -e" >> "$GITHUB_ENV"
+          fi
+
+      - name: Copy routing script to VPS
+        env:
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+          VPS_HOST: ${{ secrets.VPS_HOST || '85.239.249.175' }}
+          VPS_USER: ${{ secrets.VPS_USER || 'root' }}
+        run: |
+          set -euo pipefail
+          $SSH_RUNNER scp $SCP_OPTS deploy/route-panel-hostname.sh "$VPS_USER@$VPS_HOST:/tmp/"
+
+      - name: Run routing script on VPS
+        env:
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+          VPS_HOST: ${{ secrets.VPS_HOST || '85.239.249.175' }}
+          VPS_USER: ${{ secrets.VPS_USER || 'root' }}
+        run: |
+          set -euo pipefail
+          $SSH_RUNNER ssh $SSH_OPTS "$VPS_USER@$VPS_HOST" "bash /tmp/route-panel-hostname.sh"
+
+      - name: Verify the panel is accessible
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          echo "Waiting for panel.joeysvault.app to respond (may take 10-30s for DNS propagation)..."
+          for i in $(seq 1 5); do
+            if code=$(curl -s -o /dev/null -w '%{http_code}' -m 5 https://panel.joeysvault.app/api/config 2>/dev/null); then
+              if [ "$code" = "200" ]; then
+                echo "✓ panel.joeysvault.app is responding with HTTP $code"
+                curl -s -m 5 https://panel.joeysvault.app/api/config | head -5
+                exit 0
+              fi
+            fi
+            echo "attempt $i: waiting for connectivity..."
+            sleep 6
+          done
+          echo "::notice::panel.joeysvault.app ingress has been configured, but may take time to propagate via DNS/Cloudflare."
