@@ -1,27 +1,32 @@
-# Cloudflare Workers Configuration
-
 name = "smart-home-panel"
-type = "javascript"
-compatibility_date = "2024-01-01"
+type = "service"
+compatibility_date = "2024-12-16"
 
-# Default environment
-env.production.name = "smart-home-panel-prod"
-env.production.workers_dev = false
+[[kv_namespaces]]
+binding = "WEATHER_CACHE"
+id = "weather_cache_prod"
 
-# KV Namespace (required for caching)
-[[env.production.kv_namespaces]]
-binding = "CACHE"
-id = "your_kv_id_here"
-preview_id = "your_kv_preview_id_here"
+[[kv_namespaces]]
+binding = "TIDES_CACHE"
+id = "tides_cache_prod"
 
-# Environment variables for all workers
-[env.production.vars]
-LOCATION_LAT = "40.7128"
-LOCATION_LON = "-74.0060"
-TIDE_STATION = "8454000"
+[[kv_namespaces]]
+binding = "CELESTIAL_CACHE"
+id = "celestial_cache_prod"
 
-# Secrets (set via: wrangler secret put SECRET_NAME)
-# [env.production.secrets]
-# TWITTER_BEARER_TOKEN = "your_token"
-# SPOTIFY_CLIENT_ID = "your_client_id"
-# SPOTIFY_CLIENT_SECRET = "your_client_secret"
+[[kv_namespaces]]
+binding = "TWITTER_CACHE"
+id = "twitter_cache_prod"
+
+[[kv_namespaces]]
+binding = "SPOTIFY_KV"
+id = "spotify_token_store"
+
+routes = [
+  { pattern = "workers.joeysvault.com/voice/*", zone_name = "joeysvault.com" },
+  { pattern = "workers.joeysvault.com/weather/*", zone_name = "joeysvault.com" },
+  { pattern = "workers.joeysvault.com/tides/*", zone_name = "joeysvault.com" },
+  { pattern = "workers.joeysvault.com/celestial/*", zone_name = "joeysvault.com" },
+  { pattern = "workers.joeysvault.com/twitter/*", zone_name = "joeysvault.com" },
+  { pattern = "workers.joeysvault.com/spotify/*", zone_name = "joeysvault.com" }
+]
