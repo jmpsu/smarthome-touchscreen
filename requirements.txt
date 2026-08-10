@@ -1,4 +1,10 @@
-fastapi==0.104.1
-uvicorn==0.24.0
-aiohttp==3.9.1
-python-dotenv==1.0.0
+# Backend runtime dependencies.
+# Kept in sync with dashboard/backend/requirements.txt — this is the file the
+# VPS installer and CI deploy install from.
+fastapi>=0.110
+uvicorn[standard]>=0.29
+httpx>=0.27
+websockets>=12.0
+beautifulsoup4>=4.12
+python-dotenv>=1.0
+astronomy-engine>=2.1

@@ -17,3 +17,5 @@ dist/
 build/
 .cache/
 .headroom/
+credentials.env
+voice_rules.json

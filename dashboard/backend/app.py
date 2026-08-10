@@ -16,7 +16,7 @@ from pathlib import Path
 
 import websockets
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import celestial
@@ -24,6 +24,7 @@ from . import rooms as rooms_store
 from . import store
 from . import tides
 from . import voice as voice_mod
+from . import voice_rules
 from . import weather as weather_mod
 from .ha_client import HAClient
 
@@ -210,7 +211,16 @@ async def voice_command(payload: dict):
     """
     text = payload.get("text", "")
     lights = await _lights_snapshot()
-    plan = voice_mod.parse(text, lights)
+
+    # The user's own rules come first; the built-in parser is the safety net
+    # for phrasings no rule covers, so removing every rule never bricks voice.
+    rules = store.load("voice_rules", voice_rules.DEFAULT_RULES).get("rules", [])
+    plan = voice_rules.plan_for(text, lights, rules, await _media_entity())
+    if not plan.understood:
+        fallback = voice_mod.parse(text, lights)
+        if fallback.understood:
+            plan = fallback
+
     if payload.get("dry_run"):
         return {"spoken": plan.spoken, "understood": plan.understood,
                 "matched": plan.matched, "calls": plan.calls}
@@ -223,6 +233,78 @@ async def voice_command(payload: dict):
                  "error": str(e)}, status_code=502)
     return {"spoken": plan.spoken, "understood": plan.understood,
             "matched": plan.matched}
+
+
+async def _media_entity() -> str:
+    """The media player voice rules act on: whatever is playing, else the first."""
+    try:
+        states = await ha.states()
+    except Exception:
+        return ""
+    players = [s for s in states if s["entity_id"].startswith("media_player.")]
+    playing = next((s for s in players if s.get("state") == "playing"), None)
+    chosen = playing or (players[0] if players else None)
+    return chosen["entity_id"] if chosen else ""
+
+
+# --------------------------------------------------------------------------- #
+# Voice rules — the editable phrase book behind Settings > Voice
+# --------------------------------------------------------------------------- #
+@app.get("/api/voice/rules")
+async def voice_rules_get():
+    data = store.load("voice_rules", voice_rules.DEFAULT_RULES)
+    scenes = []
+    try:
+        scenes = [
+            s.get("attributes", {}).get("friendly_name") or s["entity_id"].split(".")[1]
+            for s in await ha.states() if s["entity_id"].startswith("scene.")
+        ]
+    except Exception:
+        pass
+    return {
+        "rules": data.get("rules", []),
+        "actions": [{"id": k, "label": v["label"], "needs": v["needs"]}
+                    for k, v in voice_rules.ACTIONS.items()],
+        "scenes": scenes,
+    }
+
+
+@app.post("/api/voice/rules")
+async def voice_rules_save(payload: dict):
+    """Replace the rule set. Body: {"rules": [{action, phrases[], scene?}]}."""
+    rules = payload.get("rules")
+    if not isinstance(rules, list):
+        return JSONResponse({"error": "rules must be a list"}, status_code=400)
+    clean = []
+    for r in rules:
+        action = str(r.get("action", ""))
+        if action not in voice_rules.ACTIONS:
+            return JSONResponse({"error": f"unknown action: {action}"}, status_code=400)
+        phrases = [str(p).strip() for p in r.get("phrases", []) if str(p).strip()]
+        entry: dict = {"action": action, "phrases": phrases}
+        if r.get("scene"):
+            entry["scene"] = str(r["scene"])
+        clean.append(entry)
+    store.save("voice_rules", {"rules": clean})
+    return {"ok": True, "count": len(clean)}
+
+
+@app.post("/api/voice/rules/reset")
+async def voice_rules_reset():
+    store.save("voice_rules", voice_rules.DEFAULT_RULES)
+    return {"ok": True, "rules": voice_rules.DEFAULT_RULES["rules"]}
+
+
+@app.get("/api/voice/sentences")
+async def voice_sentences():
+    """The 'Build Siri phrases' download: Home Assistant custom_sentences YAML."""
+    rules = store.load("voice_rules", voice_rules.DEFAULT_RULES).get("rules", [])
+    yaml_text = voice_rules.build_ha_sentences(rules)
+    return Response(
+        yaml_text,
+        media_type="text/yaml",
+        headers={"Content-Disposition": 'attachment; filename="panel.yaml"'},
+    )
 
 
 @app.get("/api/homekit")
