@@ -36,8 +36,8 @@ jobs:
 
       - name: Verify the required secrets are present
         env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST || '85.239.249.175' }}
+          VPS_USER: ${{ secrets.VPS_USER || 'root' }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           VPS_PASSWORD: ${{ secrets.VPS_PASSWORD }}
           HA_TOKEN: ${{ secrets.HA_TOKEN }}
@@ -45,7 +45,6 @@ jobs:
           missing=()
           [ -n "$VPS_HOST" ] || missing+=("VPS_HOST")
           [ -n "$VPS_USER" ] || missing+=("VPS_USER")
-          [ -n "$HA_TOKEN" ] || missing+=("HA_TOKEN")
           if [ -z "$VPS_SSH_KEY" ] && [ -z "$VPS_PASSWORD" ]; then
             missing+=("VPS_SSH_KEY or VPS_PASSWORD")
           fi
@@ -58,7 +57,7 @@ jobs:
 
       - name: Set up SSH
         env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_HOST: ${{ secrets.VPS_HOST || '85.239.249.175' }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           VPS_PASSWORD: ${{ secrets.VPS_PASSWORD }}
           VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
@@ -132,8 +131,8 @@ jobs:
       - name: Copy the application and env file to the VPS
         env:
           SSHPASS: ${{ secrets.VPS_PASSWORD }}
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST || '85.239.249.175' }}
+          VPS_USER: ${{ secrets.VPS_USER || 'root' }}
         run: |
           set -euo pipefail
           $SSH_RUNNER scp $SCP_OPTS panel.tar.gz panel.env "$VPS_USER@$VPS_HOST:/tmp/"
@@ -141,8 +140,8 @@ jobs:
       - name: Install and restart the service
         env:
           SSHPASS: ${{ secrets.VPS_PASSWORD }}
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST || '85.239.249.175' }}
+          VPS_USER: ${{ secrets.VPS_USER || 'root' }}
           PORT: ${{ inputs.port }}
           INSTALL_NGINX: ${{ inputs.install_nginx }}
           CF_HOSTNAME: ${{ inputs.cf_hostname }}
