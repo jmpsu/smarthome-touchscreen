@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=1920, height=720, initial-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#0a0d12" />
+  <title>SmartHome</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <!-- =========================== APP SHELL =========================== -->
+  <div id="app">
+
+    <!-- Left navigation rail -->
+    <nav id="nav">
+      <div class="nav-logo">◈</div>
+      <button class="nav-btn active" data-screen="launcher" aria-label="Home">
+        <span class="ni">⌂</span><span class="nl">Home</span></button>
+      <button class="nav-btn" data-screen="home-map" aria-label="Map">
+        <span class="ni">▦</span><span class="nl">Map</span></button>
+      <button class="nav-btn" data-screen="lights"  aria-label="Lights">
+        <span class="ni">☀</span><span class="nl">Lights</span></button>
+      <button class="nav-btn" data-screen="scenes"  aria-label="Scenes">
+        <span class="ni">✦</span><span class="nl">Scenes</span></button>
+      <button class="nav-btn" data-screen="cameras" aria-label="Cameras">
+        <span class="ni">◉</span><span class="nl">Cameras</span></button>
+      <button class="nav-btn" data-screen="music" aria-label="Music">
+        <span class="ni">♫</span><span class="nl">Music</span></button>
+      <button class="nav-btn" data-screen="displays" aria-label="Info">
+        <span class="ni">≋</span><span class="nl">Info</span></button>
+      <button class="nav-btn nav-bottom" data-screen="settings" aria-label="Settings">
+        <span class="ni">⚙</span><span class="nl">Setup</span></button>
+    </nav>
+
+    <!-- Main stage -->
+    <main id="stage">
+
+      <!-- ===================== LAUNCHER (landing page) ===================== -->
+      <section class="screen active" id="screen-launcher">
+        <div class="launcher">
+          <!-- Left widget column: clock, date, mini calendar / reminders -->
+          <aside class="launch-widgets">
+            <div class="card launch-clock-card">
+              <div id="clock-time" class="clock-time">--:--</div>
+              <div class="launch-clock-meta">
+                <span id="clock-zone" class="clock-zone">—</span>
+                <span id="home-date" class="home-date">—</span>
+              </div>
+              <div id="launch-weather" class="launch-weather"></div>
+            </div>
+            <div class="card launch-cal">
+              <div class="card-title">Reminders</div>
+              <div id="mini-cal" class="mini-cal"></div>
+              <div id="reminders" class="reminders"></div>
+            </div>
+            <!-- compact rotating info panel -->
+            <div class="card rotator" id="rotator" role="button" tabindex="0"
+                 aria-label="Info panel">
+              <div class="rotator-track" id="rotator-track"></div>
+              <div class="rotator-dots" id="rotator-dots"></div>
+            </div>
+          </aside>
+
+          <!-- Main: grouped app / tool tiles -->
+          <div class="launch-apps" id="launch-apps"><!-- groups injected --></div>
+        </div>
+      </section>
+
+      <!-- ===================== HOME MAP (floor plan) ===================== -->
+      <section class="screen" id="screen-home-map">
+        <header class="screen-head">
+          <h1>Home</h1>
+          <div class="head-actions">
+            <button class="pill ghost" id="edit-floorplan">Edit layout</button>
+          </div>
+        </header>
+        <div class="floorplan-wrap">
+          <div class="floorplan" id="floorplan"><!-- room cells injected --></div>
+        </div>
+      </section>
+
+      <!-- ===================== LIGHTS ===================== -->
+      <section class="screen" id="screen-lights">
+        <header class="screen-head">
+          <h1>Lights</h1>
+          <div class="head-actions">
+            <button class="pill" id="add-device">＋ Add device</button>
+            <button class="pill ghost" id="manage-rooms">Rooms</button>
+            <button class="pill ghost" id="all-on">All on</button>
+            <button class="pill ghost" id="all-off">All off</button>
+          </div>
+        </header>
+        <div class="rooms-view" id="light-grid"><!-- room sections injected --></div>
+        <div class="empty" id="lights-empty" hidden>
+          No lights found yet. Open <b>Setup</b> to link your SmartLife / WiZ
+          accounts, then they’ll appear here automatically.
+        </div>
+      </section>
+
+      <!-- ===================== SCENES ===================== -->
+      <section class="screen" id="screen-scenes">
+        <header class="screen-head"><h1>Scenes</h1></header>
+        <div class="scene-grid" id="scene-grid"></div>
+        <div class="empty" id="scenes-empty" hidden>No scenes yet.</div>
+      </section>
+
+      <!-- ===================== CAMERAS ===================== -->
+      <section class="screen" id="screen-cameras">
+        <header class="screen-head"><h1>Cameras</h1></header>
+        <div class="cam-grid" id="cam-grid"></div>
+        <div class="empty" id="cams-empty" hidden>
+          No cameras linked. Add your Eufy account in <b>Setup</b>.
+        </div>
+      </section>
+
+      <!-- ===================== MUSIC (Spotify) ===================== -->
+      <section class="screen" id="screen-music">
+        <header class="screen-head"><h1>Music</h1></header>
+        <div id="music-body"><!-- now playing injected --></div>
+        <div class="empty" id="music-empty" hidden>
+          No media player linked. Connect <b>Spotify</b> in <b>Setup → Open Home
+          Assistant</b> (one OAuth click), then it appears here.
+        </div>
+      </section>
+
+      <!-- ===================== INFO / DISPLAYS ===================== -->
+      <section class="screen" id="screen-displays">
+        <header class="screen-head">
+          <h1>Tides &amp; Sun</h1>
+          <button class="pill ghost" id="open-month">Month view</button>
+        </header>
+        <div id="displays-full"><!-- large versions of the 3 panels --></div>
+      </section>
+
+      <!-- ===================== SETTINGS ===================== -->
+      <section class="screen" id="screen-settings">
+        <header class="screen-head"><h1>Setup</h1></header>
+        <div class="settings-grid">
+          <div class="card">
+            <div class="card-title">Apple HomeKit</div>
+            <p class="muted">Scan with your iPhone Camera to add every light,
+              switch and camera to Apple Home at once. Then use Siri across all.</p>
+            <div id="homekit-qr" class="qr"></div>
+            <div class="pin">PIN <span id="homekit-pin">—</span></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Discovered on your network</div>
+            <div id="discovered-list" class="disco-list"></div>
+            <button class="pill ghost" id="rescan">Re-scan network</button>
+          </div>
+          <div class="card">
+            <div class="card-title">System</div>
+            <div class="sys-row"><span>Home Assistant</span><span id="ha-status" class="dot">—</span></div>
+            <div class="sys-row"><span>Dashboard</span><span class="dot ok">online</span></div>
+            <a class="pill ghost" href="http://localhost:8123" target="_blank">Open Home Assistant</a>
+          </div>
+          <div class="card">
+            <div class="card-title">Voice (Siri / HomePod)</div>
+            <p class="muted">Primary control is “Hey Siri…” via HomeKit. For richer
+              phrases, an Apple Shortcut can send dictated text here. Test a phrase:</p>
+            <div style="display:flex;gap:8px;margin:10px 0">
+              <input id="voice-input" class="text-input"
+                placeholder="e.g. dim the kitchen lights by 99%" />
+              <button class="pill" id="voice-test">Test</button>
+            </div>
+            <div id="voice-result" class="muted"></div>
+            <p class="muted" style="margin-top:10px">Setup guide: <b>docs/VOICE.md</b></p>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ===================== MODAL (month view / camera / light detail) === -->
+  <div id="modal" class="modal" hidden>
+    <div class="modal-card">
+      <button class="modal-close" id="modal-close" aria-label="Close">✕</button>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="/js/ha.js"></script>
+  <script src="/js/rotating.js"></script>
+  <script src="/js/rooms.js"></script>
+  <script src="/js/lights.js"></script>
+  <script src="/js/cameras.js"></script>
+  <script src="/js/media.js"></script>
+  <script src="/js/floorplan.js"></script>
+  <script src="/js/launcher.js"></script>
+  <script src="/js/settings.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

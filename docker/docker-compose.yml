@@ -1,0 +1,70 @@
+# =============================================================================
+# SmartHome Touchscreen — Docker stack
+# -----------------------------------------------------------------------------
+# Brought up by install.sh with: docker compose --env-file ../.env up -d
+#
+#   homeassistant     device hub + HomeKit/Matter bridge (host network for
+#                     LAN discovery of Tuya/WiZ/Cast/HomeKit)
+#   eufy-security-ws  logs into the Eufy cloud and exposes camera streams
+#   mediamtx          restreams Eufy RTSP -> WebRTC/HLS for the dashboard
+#   dashboard         the dark touch UI (FastAPI) the kiosk browser opens
+# =============================================================================
+services:
+  homeassistant:
+    container_name: homeassistant
+    image: ghcr.io/home-assistant/home-assistant:2026.1
+    restart: unless-stopped
+    # host network is required so HA can auto-discover LAN devices
+    # (WiZ UDP, HomeKit mDNS, Tuya local, Cast) and advertise its own
+    # HomeKit bridge over mDNS.
+    network_mode: host
+    privileged: true
+    # env_file makes .env values (LATITUDE, TIMEZONE, HOMEKIT_PIN, …) available
+    # to Home Assistant's `!env_var` template lookups in configuration.yaml.
+    env_file:
+      - ../.env
+    environment:
+      - TZ=${TIMEZONE:-America/New_York}
+    volumes:
+      - ./homeassistant:/config
+      - /run/dbus:/run/dbus:ro   # Bluetooth for BLE strips (Marvelight etc.)
+
+  eufy-security-ws:
+    container_name: eufy-security-ws
+    image: bropat/eufy-security-ws:latest
+    restart: unless-stopped
+    environment:
+      - USERNAME=${EUFY_USERNAME:-}
+      - PASSWORD=${EUFY_PASSWORD:-}
+      - COUNTRY=${EUFY_COUNTRY:-US}
+      - WS_LISTENING_PORT=3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../data/eufy:/data
+
+  mediamtx:
+    container_name: mediamtx
+    image: bluenviron/mediamtx:latest
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./mediamtx/mediamtx.yml:/mediamtx.yml:ro
+
+  dashboard:
+    container_name: dashboard
+    build:
+      context: ../dashboard
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      # inside the container, HA is reachable on the host's IP; host.docker.internal
+      # is mapped below so the dashboard can proxy the HA websocket.
+      - HA_BASE_URL=http://host.docker.internal:8123
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${DASHBOARD_PORT:-8080}:8080"
+    depends_on:
+      - homeassistant

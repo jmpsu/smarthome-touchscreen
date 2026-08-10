@@ -1,0 +1,17 @@
+# Cameras are dynamic — nothing is hardcoded here.
+#
+# When you link a camera integration in Home Assistant (Eufy via
+# eufy-security-ws, or any ONVIF/RTSP/generic camera), its `camera.*` entities
+# appear automatically and the dashboard shows them on the Cameras screen with
+# no edits to this file.
+#
+# This file is only for MANUALLY adding a generic RTSP/HTTP camera that HA can't
+# auto-discover. Example (uncomment and edit):
+#
+# - platform: generic
+#   name: My Camera
+#   stream_source: rtsp://user:pass@192.168.1.50:554/stream
+#   still_image_url: http://192.168.1.50/snapshot.jpg
+#   verify_ssl: false
+
+[]

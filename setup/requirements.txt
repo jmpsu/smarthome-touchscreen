@@ -1,0 +1,5 @@
+# Dependencies for the setup wizard + network scanner (host-side, in a venv).
+rich>=13.7          # nice on-screen TUI for the wizard
+requests>=2.31      # HA REST calls during setup
+python-dotenv>=1.0  # read/write the .env file
+zeroconf>=0.131     # mDNS discovery of HomeKit/Matter/WiZ devices

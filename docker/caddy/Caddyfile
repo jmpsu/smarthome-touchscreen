@@ -1,0 +1,18 @@
+# Example TLS reverse proxy for the VPS. Set VPS_DOMAIN and add a `caddy`
+# service to docker-compose that mounts this file. Caddy auto-provisions a
+# Let's Encrypt cert for the domain and terminates HTTPS in front of the
+# dashboard (:8080) and Home Assistant (:8123).
+#
+# Replace home.example.com with your VPS_DOMAIN.
+
+home.example.com {
+    encode zstd gzip
+
+    # Home Assistant (for the one-time OAuth links: Spotify, Tuya, Eufy)
+    handle_path /ha/* {
+        reverse_proxy homeassistant:8123
+    }
+
+    # The touch dashboard (what the Pi kiosk points at)
+    reverse_proxy dashboard:8080
+}

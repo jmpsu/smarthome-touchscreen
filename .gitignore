@@ -1,0 +1,19 @@
+# Local configuration
+.claude/
+.serena/
+.env
+.env.local
+*.log
+__pycache__/
+*.pyc
+node_modules/
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+dist/
+build/
+.cache/
+.headroom/

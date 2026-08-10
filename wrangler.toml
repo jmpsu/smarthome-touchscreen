@@ -1,0 +1,32 @@
+name = "smart-home-panel"
+type = "service"
+compatibility_date = "2024-12-16"
+
+[[kv_namespaces]]
+binding = "WEATHER_CACHE"
+id = "weather_cache_prod"
+
+[[kv_namespaces]]
+binding = "TIDES_CACHE"
+id = "tides_cache_prod"
+
+[[kv_namespaces]]
+binding = "CELESTIAL_CACHE"
+id = "celestial_cache_prod"
+
+[[kv_namespaces]]
+binding = "TWITTER_CACHE"
+id = "twitter_cache_prod"
+
+[[kv_namespaces]]
+binding = "SPOTIFY_KV"
+id = "spotify_token_store"
+
+routes = [
+  { pattern = "workers.joeysvault.com/voice/*", zone_name = "joeysvault.com" },
+  { pattern = "workers.joeysvault.com/weather/*", zone_name = "joeysvault.com" },
+  { pattern = "workers.joeysvault.com/tides/*", zone_name = "joeysvault.com" },
+  { pattern = "workers.joeysvault.com/celestial/*", zone_name = "joeysvault.com" },
+  { pattern = "workers.joeysvault.com/twitter/*", zone_name = "joeysvault.com" },
+  { pattern = "workers.joeysvault.com/spotify/*", zone_name = "joeysvault.com" }
+]

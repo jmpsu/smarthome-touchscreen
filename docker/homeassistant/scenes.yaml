@@ -1,0 +1,4 @@
+# Lighting scenes surfaced on the dashboard "Scene" tab. Starter scenes below;
+# entity_ids resolve after devices are discovered, so these are safe no-ops
+# until you have matching lights.
+[]
