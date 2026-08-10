@@ -46,6 +46,8 @@ DEFAULT_APPS = {
                  "icon": "🏠", "action": "screen:home-map"},
                 {"id": "lights", "name": "Lights", "desc": "All lights by room",
                  "icon": "💡", "action": "screen:lights"},
+                {"id": "rooms", "name": "Rooms", "desc": "Control by room",
+                 "icon": "▦", "action": "screen:rooms"},
                 {"id": "scenes", "name": "Scenes", "desc": "One-tap moods",
                  "icon": "✦", "action": "screen:scenes"},
                 {"id": "cameras", "name": "Cameras", "desc": "Live views",
