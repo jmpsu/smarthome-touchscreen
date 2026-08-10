@@ -519,3 +519,40 @@ input[type=range].bri::-webkit-slider-thumb { background: var(--accent); }
 
 .muted.ok  { color: var(--accent, #2fd6c3); }
 .muted.bad { color: #ff6b5e; }
+
+/* ---- Weather screen ------------------------------------------------------ */
+.wx-now { display: flex; flex-direction: column; gap: 14px; }
+.wx-now-main { display: flex; align-items: baseline; gap: 14px; }
+.wx-now-ic { font-size: 44px; line-height: 1; }
+.wx-now-temp { font-size: 52px; font-weight: 300; letter-spacing: -.02em; }
+.wx-now-sum { font-size: 16px; }
+.wx-details { display: flex; gap: 26px; flex-wrap: wrap; }
+.wx-detail { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+
+.wx-forecast { display: flex; gap: 10px; margin-top: 14px; overflow-x: auto; }
+.wx-day {
+  flex: 1 0 84px;
+  text-align: center;
+  padding: 12px 6px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .03);
+}
+.wx-dow { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+.wx-ic { font-size: 26px; margin: 6px 0; }
+.wx-hi { font-size: 18px; font-weight: 600; }
+.wx-lo { font-size: 14px; }
+
+/* ---- Sky screen ---------------------------------------------------------- */
+.sky-list { display: flex; flex-direction: column; gap: 12px; }
+.sky-card {
+  display: flex;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .03);
+  border: 1px solid rgba(255, 255, 255, .07);
+}
+.sky-card-ic { font-size: 30px; line-height: 1; }
+.sky-card-name { font-size: 17px; font-weight: 600; margin-bottom: 3px; }
+.sky-card-where { font-size: 13px; margin-top: 4px; }
+.sky-card-desc { margin: 8px 0 0; line-height: 1.5; color: var(--text-dim, #9aa3b2); }

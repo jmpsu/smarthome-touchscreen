@@ -17,6 +17,8 @@
     if (name === "launcher" && window.Launcher) Launcher.load();
     if (name === "home-map" && window.Floorplan) Floorplan.load();
     if (name === "music" && window.Media) Media.render();
+    if (name === "weather" && window.Weather) Weather.render();
+    if (name === "sky" && window.Sky) Sky.render();
   }
   // expose so launcher tiles / floorplan can navigate
   window.App = { showScreen };

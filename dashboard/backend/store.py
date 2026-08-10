@@ -57,8 +57,14 @@ DEFAULT_APPS = {
         {
             "name": "Info",
             "tiles": [
-                {"id": "info", "name": "Tides & Sun", "desc": "Local conditions",
+                {"id": "weather", "name": "Weather", "desc": "Now & 7 days",
+                 "icon": "🌤", "action": "screen:weather"},
+                {"id": "tides", "name": "Tides", "desc": "Highs, lows & sun",
                  "icon": "🌊", "action": "screen:displays"},
+                {"id": "sky", "name": "Sky", "desc": "Meteors & moon",
+                 "icon": "✦", "action": "screen:sky"},
+                {"id": "voice", "name": "Voice", "desc": "Phrases & Siri",
+                 "icon": "🎙", "action": "screen:settings"},
                 {"id": "settings", "name": "Setup", "desc": "Devices, rooms, voice",
                  "icon": "⚙", "action": "screen:settings"},
             ],
