@@ -13,8 +13,12 @@ on:
         description: "Port the backend binds on the VPS"
         required: false
         default: "8000"
+      cf_hostname:
+        description: "Cloudflare Tunnel hostname to route to this backend (e.g. panel.joeysvault.app). Leave blank to leave the tunnel untouched."
+        required: false
+        default: ""
       install_nginx:
-        description: "Also install/refresh the nginx reverse-proxy vhost"
+        description: "Install the nginx vhost instead. Not needed when a Cloudflare Tunnel serves the host."
         type: boolean
         required: false
         default: false
@@ -142,10 +146,11 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
           PORT: ${{ inputs.port }}
           INSTALL_NGINX: ${{ inputs.install_nginx }}
+          CF_HOSTNAME: ${{ inputs.cf_hostname }}
         run: |
           set -euo pipefail
           $SSH_RUNNER ssh $SSH_OPTS "$VPS_USER@$VPS_HOST" \
-            "PORT='$PORT' INSTALL_NGINX='$INSTALL_NGINX' bash -s" \
+            "PORT='$PORT' INSTALL_NGINX='$INSTALL_NGINX' CF_HOSTNAME='$CF_HOSTNAME' bash -s" \
             < deploy/remote-bootstrap.sh
 
       - name: Verify the panel answers publicly

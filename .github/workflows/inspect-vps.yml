@@ -1,0 +1,123 @@
+# Read-only reconnaissance of the VPS.
+#
+# This workflow CHANGES NOTHING. It exists because panel.joeysvault.app is
+# already serving a working build whose source is not in this repository, and
+# overwriting it blind would destroy it. Run this first to find out what is
+# actually running and where its code lives.
+name: Inspect VPS (read-only)
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: inspect-vps
+  cancel-in-progress: true
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the SSH secrets are present
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_PASSWORD: ${{ secrets.VPS_PASSWORD }}
+        run: |
+          missing=()
+          [ -n "$VPS_HOST" ] || missing+=("VPS_HOST")
+          [ -n "$VPS_USER" ] || missing+=("VPS_USER")
+          if [ -z "$VPS_SSH_KEY" ] && [ -z "$VPS_PASSWORD" ]; then
+            missing+=("VPS_SSH_KEY or VPS_PASSWORD")
+          fi
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing repository secrets: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Set up SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          set -euo pipefail
+          port="${VPS_SSH_PORT:-22}"
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          ssh-keyscan -p "$port" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          chmod 600 ~/.ssh/known_hosts
+          if [ -n "$VPS_SSH_KEY" ]; then
+            printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_deploy
+            chmod 600 ~/.ssh/id_deploy
+            echo "SSH_OPTS=-i $HOME/.ssh/id_deploy -p $port -o BatchMode=yes" >> "$GITHUB_ENV"
+            echo "SSH_RUNNER=" >> "$GITHUB_ENV"
+          else
+            sudo apt-get update -qq && sudo apt-get install -y -qq sshpass
+            echo "SSH_OPTS=-p $port" >> "$GITHUB_ENV"
+            echo "SSH_RUNNER=sshpass -e" >> "$GITHUB_ENV"
+          fi
+
+      - name: Report what is serving the panel
+        env:
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -euo pipefail
+          $SSH_RUNNER ssh $SSH_OPTS "$VPS_USER@$VPS_HOST" 'bash -s' <<'REMOTE' | tee report.txt
+          echo "===================== LISTENING PORTS ====================="
+          (ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null) | head -40
+
+          echo; echo "===================== CLOUDFLARE TUNNEL ==================="
+          systemctl is-active cloudflared 2>/dev/null || echo "cloudflared: not a systemd unit"
+          for f in /etc/cloudflared/config.yml /etc/cloudflared/config.yaml \
+                   /root/.cloudflared/config.yml /root/.cloudflared/config.yaml; do
+            [ -f "$f" ] && { echo "--- $f ---"; cat "$f"; }
+          done
+          # Credentials files are named for the tunnel; list them but never print.
+          ls -l /etc/cloudflared /root/.cloudflared 2>/dev/null | grep -v '\.json' || true
+
+          echo; echo "===================== WEB SERVERS ========================="
+          for svc in nginx caddy apache2 traefik; do
+            systemctl is-active "$svc" >/dev/null 2>&1 && echo "$svc: ACTIVE"
+          done
+          ls -l /etc/nginx/sites-enabled 2>/dev/null || true
+
+          echo; echo "===================== APP SERVICES ========================"
+          systemctl list-units --type=service --state=running --no-pager --no-legend \
+            | grep -viE 'systemd|dbus|cron|ssh|rsyslog|getty|polkit|networkd|resolved|udev|journal' \
+            | head -30
+
+          echo; echo "===================== DOCKER =============================="
+          command -v docker >/dev/null && docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Ports}}' \
+            || echo "docker: not installed"
+
+          echo; echo "===================== LIKELY APP DIRECTORIES =============="
+          for d in /opt /srv /var/www /root /home/*; do
+            [ -d "$d" ] && find "$d" -maxdepth 3 \
+              \( -name 'package.json' -o -name 'requirements.txt' -o -name '*.py' \
+                 -o -name 'index.html' \) -not -path '*/node_modules/*' \
+                 -not -path '*/.venv/*' -not -path '*/site-packages/*' 2>/dev/null | head -25
+          done
+
+          echo; echo "===================== GIT CHECKOUTS ======================="
+          find /opt /srv /root /home /var/www -maxdepth 4 -name '.git' -type d 2>/dev/null \
+            | while read -r g; do
+                r="${g%/.git}"
+                echo "--- $r"
+                git -C "$r" remote -v 2>/dev/null | head -2
+                git -C "$r" log --oneline -1 2>/dev/null
+              done
+
+          echo; echo "===================== DOES IT SERVE THE PANEL? ============"
+          for p in 80 3000 8000 8080 8123 5000; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -m 3 "http://127.0.0.1:$p/" || echo 000)
+            [ "$code" != "000" ] && echo "port $p -> HTTP $code"
+          done
+          REMOTE
+
+      - name: Upload the report
+        uses: actions/upload-artifact@v4
+        with:
+          name: vps-report
+          path: report.txt
