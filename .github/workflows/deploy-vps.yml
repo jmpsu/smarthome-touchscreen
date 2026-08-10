@@ -1,0 +1,167 @@
+# Deploys the panel backend to the Contabo VPS.
+#
+# This runs on a GitHub-hosted runner, which has unrestricted outbound network
+# access — that is the point. It can reach the VPS over SSH, so nobody has to
+# open a terminal by hand: fill in the repository secrets once, press "Run
+# workflow", and the runner does the whole install.
+name: Deploy panel to VPS
+
+on:
+  workflow_dispatch:
+    inputs:
+      port:
+        description: "Port the backend binds on the VPS"
+        required: false
+        default: "8000"
+      install_nginx:
+        description: "Also install/refresh the nginx reverse-proxy vhost"
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Verify the required secrets are present
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_PASSWORD: ${{ secrets.VPS_PASSWORD }}
+          HA_TOKEN: ${{ secrets.HA_TOKEN }}
+        run: |
+          missing=()
+          [ -n "$VPS_HOST" ] || missing+=("VPS_HOST")
+          [ -n "$VPS_USER" ] || missing+=("VPS_USER")
+          [ -n "$HA_TOKEN" ] || missing+=("HA_TOKEN")
+          if [ -z "$VPS_SSH_KEY" ] && [ -z "$VPS_PASSWORD" ]; then
+            missing+=("VPS_SSH_KEY or VPS_PASSWORD")
+          fi
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing repository secrets: ${missing[*]}"
+            echo "Add them under Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          echo "All required secrets are present."
+
+      - name: Set up SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_PASSWORD: ${{ secrets.VPS_PASSWORD }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          set -euo pipefail
+          port="${VPS_SSH_PORT:-22}"
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+
+          # Trust-on-first-use: record the host key so the session is not
+          # vulnerable to a silent MITM for the rest of the run.
+          ssh-keyscan -p "$port" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          chmod 600 ~/.ssh/known_hosts
+
+          if [ -n "$VPS_SSH_KEY" ]; then
+            printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_deploy
+            chmod 600 ~/.ssh/id_deploy
+            echo "SSH_OPTS=-i $HOME/.ssh/id_deploy -p $port -o BatchMode=yes" >> "$GITHUB_ENV"
+            echo "SCP_OPTS=-i $HOME/.ssh/id_deploy -P $port -o BatchMode=yes" >> "$GITHUB_ENV"
+            echo "SSH_RUNNER=" >> "$GITHUB_ENV"
+          else
+            sudo apt-get update -qq && sudo apt-get install -y -qq sshpass
+            echo "SSH_OPTS=-p $port" >> "$GITHUB_ENV"
+            echo "SCP_OPTS=-P $port" >> "$GITHUB_ENV"
+            echo "SSH_RUNNER=sshpass -e" >> "$GITHUB_ENV"
+          fi
+          echo "SSH_PORT=$port" >> "$GITHUB_ENV"
+
+      - name: Build the runtime env file
+        env:
+          HA_BASE_URL: ${{ secrets.HA_BASE_URL }}
+          HA_TOKEN: ${{ secrets.HA_TOKEN }}
+          LATITUDE: ${{ vars.LATITUDE }}
+          LONGITUDE: ${{ vars.LONGITUDE }}
+          TIMEZONE: ${{ vars.TIMEZONE }}
+          X_ACCOUNT: ${{ vars.X_ACCOUNT }}
+          TIDES_WEEK_URL: ${{ vars.TIDES_WEEK_URL }}
+          TIDES_MONTH_URL: ${{ vars.TIDES_MONTH_URL }}
+          SCREEN_WIDTH: ${{ vars.SCREEN_WIDTH }}
+          SCREEN_HEIGHT: ${{ vars.SCREEN_HEIGHT }}
+          ROTATE_SECONDS: ${{ vars.ROTATE_SECONDS }}
+          HOMEKIT_PIN: ${{ secrets.HOMEKIT_PIN }}
+        run: |
+          set -euo pipefail
+          # Only emit keys that actually have a value, so blank optional
+          # settings fall back to the application defaults instead of
+          # overriding them with an empty string.
+          emit() { [ -n "${2:-}" ] && printf '%s=%s\n' "$1" "$2" >> panel.env || true; }
+          : > panel.env
+          emit HA_BASE_URL     "${HA_BASE_URL:-https://ha.joeysvault.app}"
+          emit HA_TOKEN        "$HA_TOKEN"
+          emit LATITUDE        "$LATITUDE"
+          emit LONGITUDE       "$LONGITUDE"
+          emit TIMEZONE        "${TIMEZONE:-America/New_York}"
+          emit X_ACCOUNT       "$X_ACCOUNT"
+          emit TIDES_WEEK_URL  "$TIDES_WEEK_URL"
+          emit TIDES_MONTH_URL "$TIDES_MONTH_URL"
+          emit SCREEN_WIDTH    "${SCREEN_WIDTH:-1920}"
+          emit SCREEN_HEIGHT   "${SCREEN_HEIGHT:-720}"
+          emit ROTATE_SECONDS  "${ROTATE_SECONDS:-10}"
+          emit HOMEKIT_PIN     "$HOMEKIT_PIN"
+          echo "Wrote $(wc -l < panel.env) settings (values withheld from the log)."
+
+      - name: Package the application
+        run: |
+          set -euo pipefail
+          tar --exclude-vcs \
+              --exclude='.venv' --exclude='__pycache__' --exclude='node_modules' \
+              -czf panel.tar.gz \
+              dashboard requirements.txt deploy docs README.md
+
+      - name: Copy the application and env file to the VPS
+        env:
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -euo pipefail
+          $SSH_RUNNER scp $SCP_OPTS panel.tar.gz panel.env "$VPS_USER@$VPS_HOST:/tmp/"
+
+      - name: Install and restart the service
+        env:
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          PORT: ${{ inputs.port }}
+          INSTALL_NGINX: ${{ inputs.install_nginx }}
+        run: |
+          set -euo pipefail
+          $SSH_RUNNER ssh $SSH_OPTS "$VPS_USER@$VPS_HOST" \
+            "PORT='$PORT' INSTALL_NGINX='$INSTALL_NGINX' bash -s" \
+            < deploy/remote-bootstrap.sh
+
+      - name: Verify the panel answers publicly
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -m 10 https://panel.joeysvault.app/api/config || echo 000)
+            if [ "$code" = "200" ]; then
+              echo "panel.joeysvault.app is serving the dashboard."
+              curl -s -m 10 https://panel.joeysvault.app/api/config
+              exit 0
+            fi
+            echo "attempt $i: HTTP $code"
+            sleep 6
+          done
+          echo "::warning::The backend installed and is healthy on the VPS, but"
+          echo "::warning::panel.joeysvault.app is not routing to it yet. Point the"
+          echo "::warning::Cloudflare record / reverse proxy at the VPS on port 8000."
