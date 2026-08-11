@@ -159,28 +159,96 @@ fi
 hdr "3. INSTALL + VALIDATE HOMEKIT CONFIG"
 # -----------------------------------------------------------------------------
 
+# Home Assistant runs as root inside the container, so files it has rewritten
+# are root-owned on the host. Detect that and escalate only for the writes.
+SUDO=""
+if ! ( : >> "$LIVE_CONFIG/configuration.yaml" ) 2>/dev/null; then
+  if sudo -n true 2>/dev/null || sudo -v 2>/dev/null; then
+    SUDO="sudo"
+    info "config files are root-owned (HA wrote them) — using sudo for writes only"
+  else
+    bad "configuration.yaml is not writable and sudo is unavailable."
+    bad "re-run as: sudo bash scripts/homekit-bridge-setup.sh"
+    exit 1
+  fi
+fi
+
 BACKUP="$LIVE_CONFIG/.backup-$STAMP"
-mkdir -p "$BACKUP"
+$SUDO mkdir -p "$BACKUP"
 for f in "$LIVE_CONFIG"/*.yaml; do
-  [[ -e "$f" ]] && cp -a "$f" "$BACKUP/"
+  [[ -e "$f" ]] && $SUDO cp -a "$f" "$BACKUP/"
 done
-[[ -d "$LIVE_CONFIG/packages" ]] && cp -a "$LIVE_CONFIG/packages" "$BACKUP/" 2>/dev/null || true
+[[ -d "$LIVE_CONFIG/packages" ]] && $SUDO cp -a "$LIVE_CONFIG/packages" "$BACKUP/" 2>/dev/null || true
 ok "backed up existing yaml -> $BACKUP"
 info ".storage/ deliberately NOT touched (accounts, tokens, Tuya link preserved)"
 
-# Copy only YAML. Never .storage.
-for f in configuration.yaml automations.yaml scenes.yaml scripts.yaml cameras.yaml; do
-  if [[ -f "$REPO_CONFIG/$f" ]]; then
-    cp -a "$REPO_CONFIG/$f" "$LIVE_CONFIG/$f"
-    info "installed $f"
-  fi
-done
+# SURGICAL EDIT, NOT WHOLESALE REPLACE.
+#
+# The live config already has working integrations (Tuya et al). Overwriting it
+# with the repo's file would risk dropping anything set up outside this repo and
+# would swap in !env_var lookups the container may not have. So we make the two
+# minimal text edits needed, preserving comments, anchors, and custom YAML tags:
+#   1. append a top-level `homekit:` block if absent
+#   2. add `packages: !include_dir_named packages` under `homeassistant:`
+TMP_CFG="$(mktemp)"
+$SUDO cat "$LIVE_CONFIG/configuration.yaml" > "$TMP_CFG" 2>/dev/null || : > "$TMP_CFG"
+
+HOMEKIT_PORT="${HOMEKIT_PORT:-21063}"
+python3 - "$TMP_CFG" "$HOMEKIT_PORT" <<'PY'
+import re, sys
+path, port = sys.argv[1], sys.argv[2]
+src = open(path).read()
+orig = src
+if not src.endswith("\n"):
+    src += "\n"
+
+# 1) homekit: bridge -------------------------------------------------------
+if not re.search(r'(?m)^homekit:', src):
+    src += f"""
+# --- Apple HomeKit Bridge (added by scripts/homekit-bridge-setup.sh) --------
+# Exposes lights/switches/etc to Apple Home + Siri. Requires host networking so
+# the bridge can advertise over mDNS on the LAN.
+homekit:
+  - name: SmartHome Bridge
+    port: {port}
+    filter:
+      include_domains:
+        - light
+        - switch
+        - fan
+        - cover
+        - lock
+        - climate
+"""
+    print("ADDED homekit")
+else:
+    print("SKIP homekit (already present)")
+
+# 2) packages include, nested under homeassistant: --------------------------
+if re.search(r'(?m)^\s*packages:', src):
+    print("SKIP packages (already present)")
+elif re.search(r'(?m)^homeassistant:', src):
+    src = re.sub(r'(?m)^(homeassistant:[ \t]*\n)',
+                 r'\1  packages: !include_dir_named packages\n', src, count=1)
+    print("ADDED packages (under existing homeassistant:)")
+else:
+    src += "\nhomeassistant:\n  packages: !include_dir_named packages\n"
+    print("ADDED packages (new homeassistant: block)")
+
+if src != orig:
+    open(path, "w").write(src)
+PY
+
+$SUDO cp "$TMP_CFG" "$LIVE_CONFIG/configuration.yaml"
+rm -f "$TMP_CFG"
+ok "configuration.yaml updated in place (existing integrations untouched)"
+
+# packages/ carries the Assist voice intents; additive, safe to sync.
 if [[ -d "$REPO_CONFIG/packages" ]]; then
-  mkdir -p "$LIVE_CONFIG/packages"
-  cp -a "$REPO_CONFIG/packages/." "$LIVE_CONFIG/packages/"
+  $SUDO mkdir -p "$LIVE_CONFIG/packages"
+  $SUDO cp -a "$REPO_CONFIG/packages/." "$LIVE_CONFIG/packages/"
   info "installed packages/ (voice intents)"
 fi
-ok "repo config installed into live dir"
 
 # Validate with Home Assistant's own checker. This is authoritative — it is the
 # same parser HA uses at boot, so it catches schema errors regardless of what
@@ -194,7 +262,7 @@ else
   echo
   tail -30 /tmp/hacheck.$STAMP | sed 's/^/      /'
   echo
-  cp -a "$BACKUP"/*.yaml "$LIVE_CONFIG/" 2>/dev/null || true
+  $SUDO cp -a "$BACKUP"/*.yaml "$LIVE_CONFIG/" 2>/dev/null || true
   bad "rolled back from $BACKUP. Nothing was changed. Full log: /tmp/hacheck.$STAMP"
   exit 1
 fi
