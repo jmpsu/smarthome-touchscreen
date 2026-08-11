@@ -19,6 +19,9 @@ lovelace:
   mode: auto-gen
 
 homeassistant:
+  # Loads every file in packages/ — this is what activates the custom Assist
+  # voice intents in packages/voice.yaml. Without this line that file is inert.
+  packages: !include_dir_named packages
   # These are overwritten at first boot by set_secrets.py using .env values.
   name: Home
   latitude: !env_var LATITUDE 0

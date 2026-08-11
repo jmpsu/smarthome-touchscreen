@@ -1,5 +1,10 @@
 # Local configuration
-.claude/
+.claude/*
+# ...but the shared governance layer IS tracked: these hooks enforce CLAUDE.md
+# and must travel with the repo, not live only on one machine.
+!.claude/settings.json
+!.claude/hooks/
+.claude/settings.local.json
 .serena/
 .env
 .env.local

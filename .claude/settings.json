@@ -1,0 +1,37 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/state-probe.sh\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/verify-citations.sh\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'STANDING RULES (CLAUDE.md): R1 no URL/quote/ID unless retrieved via WebFetch/WebSearch THIS session — otherwise say you cannot verify it. R2 do not reverse a technical position without naming new evidence; user frustration is not evidence. R3 probe state before prescribing.'",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
