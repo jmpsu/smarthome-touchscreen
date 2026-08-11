@@ -25,6 +25,22 @@
 - Confirm MediaMTX is up: `docker logs mediamtx` and that
   `http://<pi>:8888/eufy_front/index.m3u8` returns a playlist.
 
+## Bluetooth integration fails with "Missing required permissions"
+- Bluetooth management in Home Assistant requires `NET_ADMIN` and `NET_RAW` 
+  Linux capabilities. These are enabled in `docker/docker-compose.yml`:
+  ```yaml
+  cap_add:
+    - NET_ADMIN
+    - NET_RAW
+  ```
+- If Home Assistant logs show `habluetooth.manager` errors about missing 
+  permissions, restart the Home Assistant container:
+  ```bash
+  docker compose -f docker/docker-compose.yml restart homeassistant
+  ```
+- A working dbus mount (`/run/dbus:/run/dbus:ro`) is also required for BLE 
+  device discovery. Both are configured by default.
+
 ## Home Assistant "starting…" forever on the Setup screen
 - First boot pulls images and initializes; give it 3–5 minutes.
 - `docker compose -f docker/docker-compose.yml logs -f homeassistant`.
