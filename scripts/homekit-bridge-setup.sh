@@ -289,19 +289,32 @@ if [[ "$UP" != "1" ]]; then
   exit 1
 fi
 
-info "waiting for the HomeKit bridge to initialise..."
-sleep 20
+# Poll for the bridge's pairing store rather than guessing at a fixed sleep.
+#
+# NOTE: .storage/ is root-owned (HA writes it), so every read here needs $SUDO.
+# Omitting it makes the lookup fail silently and fall through to the .env value,
+# which is NOT what the bridge is actually using — see the AUTHORITATIVE check
+# below. That was a real bug; do not "simplify" the sudo away.
+info "waiting for the HomeKit bridge to write its pairing store..."
+STORE=""
+for i in $(seq 1 18); do
+  STORE="$($SUDO ls -1 "$LIVE_CONFIG"/.storage/homekit.* 2>/dev/null | head -1 || true)"
+  [[ -n "$STORE" ]] && break
+  sleep 5
+  printf '.'
+done
+echo
 
-# Extract the pairing code. Try, in order: the HomeKit storage file, then the
-# HA log, then the PIN configured in .env.
 PIN=""
 SETUP_ID=""
-STORE="$(ls -1 "$LIVE_CONFIG"/.storage/homekit.* 2>/dev/null | head -1 || true)"
+AUTHORITATIVE=0
 if [[ -n "$STORE" ]]; then
   ok "found HomeKit store: $(basename "$STORE")"
+  AUTHORITATIVE=1
+  STORE_JSON="$(mktemp)"; $SUDO cat "$STORE" > "$STORE_JSON" 2>/dev/null || true
   PIN="$(python3 -c "
 import json,sys
-d=json.load(open('$STORE'))
+d=json.load(open('$STORE_JSON'))
 def dig(o):
     if isinstance(o,dict):
         for k,v in o.items():
@@ -317,7 +330,7 @@ print(dig(d) or '')
 " 2>/dev/null || true)"
   SETUP_ID="$(python3 -c "
 import json
-d=json.load(open('$STORE'))
+d=json.load(open('$STORE_JSON'))
 def dig(o):
     if isinstance(o,dict):
         for k,v in o.items():
@@ -333,19 +346,41 @@ print(dig(d) or '')
 " 2>/dev/null || true)"
 fi
 
+# Second authoritative source: HA logs the pairing code when the bridge starts.
 if [[ -z "$PIN" ]]; then
-  PIN="$(docker logs "$CONTAINER" 2>&1 | grep -oE '[0-9]{3}-[0-9]{2}-[0-9]{3}' | tail -1 || true)"
-  [[ -n "$PIN" ]] && info "recovered PIN from HA log"
-fi
-if [[ -z "$PIN" && -f "$REPO_DIR/.env" ]]; then
-  PIN="$(grep -E '^HOMEKIT_PIN=' "$REPO_DIR/.env" | cut -d= -f2- | tr -d '"'"'"' ' || true)"
-  [[ -n "$PIN" ]] && info "using HOMEKIT_PIN from .env"
+  PIN="$($SUDO docker logs "$CONTAINER" 2>&1 | grep -oE '[0-9]{3}-[0-9]{2}-[0-9]{3}' | tail -1 || true)"
+  if [[ -n "$PIN" ]]; then
+    ok "recovered pairing code from the HA log (authoritative)"
+    AUTHORITATIVE=1
+  fi
 fi
 
-if [[ -z "$PIN" ]]; then
-  bad "could not determine the pairing PIN automatically."
-  info "open http://$(hostname -I | awk '{print $1}'):8123 -> Settings -> Devices & Services"
-  info "-> HomeKit Bridge -> the PIN and QR are shown there."
+# NOT authoritative. HOMEKIT_PIN in .env is only what the bridge uses if the
+# homekit: block sets `pincode:`. Ours does not, so HA generates its own. This
+# value is a hint for a human to compare against, never something to present as
+# the pairing code.
+ENV_PIN=""
+if [[ -f "$REPO_DIR/.env" ]]; then
+  ENV_PIN="$(grep -E '^HOMEKIT_PIN=' "$REPO_DIR/.env" | cut -d= -f2- | tr -d '"'"'"' ' || true)"
+fi
+
+HOST_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+
+if [[ "$AUTHORITATIVE" != "1" || -z "$PIN" ]]; then
+  hdr "PAIRING CODE NOT CONFIRMED"
+  bad "Could not read the bridge's real pairing code."
+  echo
+  info "The bridge IS configured and Home Assistant restarted cleanly — only the"
+  info "code lookup failed. Get it from the UI, which is authoritative:"
+  echo
+  printf '     http://%s:8123  ->  Settings  ->  Devices & Services\n' "${HOST_IP:-<pi-ip>}"
+  printf '     ->  HomeKit Bridge  ->  the QR code and PIN are on that card\n\n'
+  if [[ -n "$ENV_PIN" ]]; then
+    warn "HOMEKIT_PIN in .env is $ENV_PIN — do NOT assume this is the code."
+    warn "It only applies if homekit: sets 'pincode:', which it does not."
+  fi
+  info "or read the store directly:"
+  printf "     sudo python3 -c \"import glob,json;[print(json.dumps(json.load(open(f)),indent=2)) for f in glob.glob('%s/.storage/homekit.*')]\"\n\n" "$LIVE_CONFIG"
   exit 1
 fi
 
@@ -357,20 +392,31 @@ else
   PRETTY="$PIN"
 fi
 
-# Build the X-HM:// setup URI. Best-effort: prefer HAP-python (the library HA
-# itself uses) so the encoding is authoritative; fall back to computing it.
-URI="$(docker exec "$CONTAINER" python3 -c "
+# Build the X-HM:// setup URI — ONLY with the bridge's real setup_id.
+#
+# A URI built on a placeholder id renders a QR that looks perfectly scannable
+# and then silently fails to pair, which is worse than showing no QR at all.
+# Typing the numeric code is a fully supported path, so skipping the QR costs
+# the user nothing.
+URI=""
+if [[ -z "$SETUP_ID" ]]; then
+  warn "no setup_id from the bridge — skipping the QR on purpose."
+  info "type the code instead; it pairs exactly the same way."
+else
+  # Prefer HAP-python (the library HA itself uses) so the encoding is its own.
+  URI="$(docker exec "$CONTAINER" python3 -c "
 try:
     from pyhap.util import to_hap_uri  # type: ignore
-    print(to_hap_uri('$DIGITS', '${SETUP_ID:-HASS}', 2))
+    print(to_hap_uri('$DIGITS', '$SETUP_ID', 2))
 except Exception:
     print('')
 " 2>/dev/null || true)"
+  [[ -n "$URI" ]] && info "setup URI generated by HAP-python (authoritative)"
 
-if [[ -z "$URI" ]]; then
-  URI="$(python3 -c "
+  if [[ -z "$URI" ]]; then
+    URI="$(python3 -c "
 code=int('$DIGITS')
-sid='${SETUP_ID:-HASS}'
+sid='$SETUP_ID'
 payload=0
 payload|=0&0x7;    payload<<=4      # version
 payload|=0&0xf;    payload<<=8      # reserved
@@ -384,7 +430,8 @@ while n:
     s=digits[n%36]+s; n//=36
 print('X-HM://'+s.rjust(9,'0')+sid)
 " 2>/dev/null || true)"
-  [[ -n "$URI" ]] && info "setup URI computed locally (HAP encoding, best-effort)"
+    [[ -n "$URI" ]] && info "setup URI computed locally from the real setup_id"
+  fi
 fi
 
 hdr "HOMEKIT PAIRING"
