@@ -182,9 +182,9 @@ ok "homekit: $HK_STATE"
 # -----------------------------------------------------------------------------
 hdr "4. WRITE MILESTONE DOC"
 # -----------------------------------------------------------------------------
-LIGHTS="$(grep -c '^| `light\.' "$SNAP/entities.md" 2>/dev/null || echo 0)"
-NINT="$(grep -c '^| `' "$SNAP/integrations.md" 2>/dev/null || echo 0)"
-NENT="$(grep -oE 'Total entities: [0-9]+' "$SNAP/entities.md" 2>/dev/null | grep -oE '[0-9]+' || echo 0)"
+LIGHTS="$(grep -c '^| `light\.' "$SNAP/entities.md" 2>/dev/null || true)"
+NINT="$(grep -c '^| `' "$SNAP/integrations.md" 2>/dev/null || true)"
+NENT="$(grep -oE 'Total entities: [0-9]+' "$SNAP/entities.md" 2>/dev/null | grep -oE '[0-9]+' || true)"
 
 cat > "$DOC" <<EOF
 # Working state — verified milestone

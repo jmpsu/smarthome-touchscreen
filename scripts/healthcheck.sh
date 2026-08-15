@@ -51,7 +51,7 @@ DISK_PCT="$(df -P / | awk 'NR==2{print $5}' | tr -d '%')"
 if [[ "${DISK_PCT:-0}" -lt 90 ]]; then pass "disk: ${DISK_PCT}% used on /"
 else fail "disk: ${DISK_PCT}% used on / — HA will misbehave above ~90%"; fi
 
-MEM_AVAIL="$(awk '/MemAvailable/{print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)"
+MEM_AVAIL="$(awk '/MemAvailable/{print int($2/1024)}' /proc/meminfo 2>/dev/null || true)"
 if [[ "$MEM_AVAIL" -gt 200 ]]; then pass "memory: ${MEM_AVAIL} MB available"
 else fail "memory: only ${MEM_AVAIL} MB available"; fi
 
@@ -136,7 +136,7 @@ VER="$(curl -s --max-time 5 "$HA/api/" 2>/dev/null | grep -o '"message":"[^"]*"'
 HAVER="$(docker exec "$CONTAINER" python3 -c 'import homeassistant.const as c;print(c.__version__)' 2>/dev/null || echo '')"
 [[ -n "$HAVER" ]] && pass "Home Assistant version $HAVER" || skip "version (container not queryable)"
 
-ERRS="$(docker logs --since 10m "$CONTAINER" 2>&1 | grep -cE '^[0-9-]+ [0-9:.]+ ERROR' || echo 0)"
+ERRS="$(docker logs --since 10m "$CONTAINER" 2>&1 | grep -cE '^[0-9-]+ [0-9:.]+ ERROR' || true)"
 if [[ "$ERRS" -eq 0 ]]; then pass "no ERROR lines in the last 10 minutes"
 else warn "$ERRS ERROR lines in the last 10 min — see: docker logs --since 10m $CONTAINER | grep ERROR"; fi
 
@@ -195,7 +195,7 @@ else warn "no HomeKit pairing store — bridge has not completed setup"; fi
 
 # The definitive HomeKit test: is it actually advertising on the LAN?
 if command -v avahi-browse >/dev/null 2>&1; then
-  HAP="$(timeout 8 avahi-browse -rpt _hap._tcp 2>/dev/null | grep -c '^=' || echo 0)"
+  HAP="$(timeout 8 avahi-browse -rpt _hap._tcp 2>/dev/null | grep -c '^=' || true)"
   if [[ "$HAP" -gt 0 ]]; then pass "mDNS: $HAP HomeKit accessory(s) advertising on the LAN"
   else fail "mDNS: nothing advertising _hap._tcp — iPhone cannot see the bridge"; fi
 else
@@ -206,7 +206,7 @@ fi
 hdr "7. VOICE INTENTS"
 # ============================================================================
 if [[ -n "$LIVE" ]] && $SUDO test -f "$LIVE/packages/voice.yaml" 2>/dev/null; then
-  NI="$($SUDO grep -cE '^\s{4}HP[0-9]+_' "$LIVE/packages/voice.yaml" 2>/dev/null || echo 0)"
+  NI="$($SUDO grep -cE '^\s{4}HP[0-9]+_' "$LIVE/packages/voice.yaml" 2>/dev/null || true)"
   pass "voice.yaml present ($NI custom intents)"
 else warn "voice.yaml not in live packages/ — custom phrases unavailable (HomeKit/Siri unaffected)"; fi
 
