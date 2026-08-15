@@ -71,7 +71,7 @@ hdr "2. CAN YOUR IPHONE FIND IT? (mDNS)"
 # ============================================================================
 if command -v avahi-browse >/dev/null 2>&1; then
   HAP="$(timeout 8 avahi-browse -rpt _hap._tcp 2>/dev/null | grep '^=' || true)"
-  N="$(printf '%s' "$HAP" | grep -c . || echo 0)"
+  N="$(printf '%s' "$HAP" | grep -c . || true)"
   if [[ "$N" -gt 0 ]]; then
     yes_ "$N HomeKit accessory(s) advertising on the LAN"
     ADVERTISING=1
@@ -139,10 +139,21 @@ else
 fi
 
 # Cloud reachability — Tuya is a cloud integration; no internet, no lights.
-if ping -c1 -W2 1.1.1.1 >/dev/null 2>&1; then yes_ "internet reachable (Tuya cloud needs it)"
-else no_ "NO INTERNET — Tuya lights cannot work   -> CASE C"; fi
+#
+# Tested over HTTPS, not ICMP. Many home routers and ISPs drop ping, which made
+# an earlier version report "NO INTERNET" on a machine that had just completed a
+# git fetch. Testing the protocol we actually depend on avoids that false
+# negative; a wrong NO here sends you chasing a network fault that isn't real.
+if curl -sS -o /dev/null --max-time 8 https://api.github.com 2>/dev/null \
+   || curl -sS -o /dev/null --max-time 8 https://1.1.1.1 2>/dev/null; then
+  yes_ "internet reachable over HTTPS (Tuya cloud needs it)"
+  NET_OK=1
+else
+  no_ "no outbound HTTPS — Tuya lights cannot work   -> CASE C"
+  NET_OK=0
+fi
 
-TUYAERR="$(docker logs --since 15m "$CONTAINER" 2>&1 | grep -ciE 'tuya.*(error|fail|timeout|disconnect)' || echo 0)"
+TUYAERR="$(docker logs --since 15m "$CONTAINER" 2>&1 | grep -ciE 'tuya.*(error|fail|timeout|disconnect)' || true)"
 if [[ "$TUYAERR" -gt 0 ]]; then
   no_ "$TUYAERR Tuya error lines in the last 15 min"
   docker logs --since 15m "$CONTAINER" 2>&1 | grep -iE 'tuya.*(error|fail|timeout|disconnect)' | tail -3 | sed 's/^/       /'
@@ -158,7 +169,7 @@ hdr "4. YOUR APPLE HOME HUB (the HomePod)"
 # not as a claim about hub health.
 if command -v avahi-browse >/dev/null 2>&1; then
   PODS="$(timeout 8 avahi-browse -rpt _airplay._tcp 2>/dev/null | grep '^=' || true)"
-  NP="$(printf '%s' "$PODS" | grep -c . || echo 0)"
+  NP="$(printf '%s' "$PODS" | grep -c . || true)"
   if [[ "$NP" -gt 0 ]]; then
     yes_ "$NP AirPlay device(s) visible on the LAN"
     HUB_SEEN=1
@@ -197,6 +208,28 @@ elif [[ "$ENTITIES_OK" == "0" ]]; then
   echo "  DO NOT re-pair the bridge. That fixes nothing and loses your rooms."
   echo "  FIX: restore internet / relink Tuya at http://$(hostname -I | awk '{print $1}'):8123"
   echo "       Settings -> Devices & Services -> Tuya"
+elif [[ "$ENTITIES_OK" == "-1" ]]; then
+  # UNKNOWN is not HEALTHY. An earlier version let this fall through to the
+  # all-clear branch, which then printed "entities alive" immediately after the
+  # script had said it could not check them. Never restate an unchecked value as
+  # verified — say what was not established and how to establish it.
+  printf '  %sPARTIAL — HomeKit infrastructure is healthy. Light health UNKNOWN.%s\n\n' "$c_y" "$c_0"
+  echo "  CONFIRMED working:"
+  echo "    - bridge running and listening"
+  echo "    - bridge advertising on the LAN (your iPhone can discover it)"
+  [[ "${NET_OK:-1}" == "1" ]] && echo "    - internet up, so the Tuya cloud is reachable"
+  [[ "$HUB_SEEN" == "1" ]] && echo "    - HomePods present on the network"
+  echo
+  echo "  NOT CHECKED: whether the lights are actually alive inside Home"
+  echo "  Assistant. That is the difference between 'HomeKit broken' and 'Tuya"
+  echo "  broken', and it needs HA_TOKEN. Without it this script cannot tell you."
+  echo
+  echo "  FASTEST ANSWER — no token needed. Open:"
+  echo "    http://$(hostname -I | awk '{print $1}'):8123   ->  Developer Tools -> States"
+  echo "    filter for 'light.'  — if they read 'unavailable', HomeKit is fine and"
+  echo "    Tuya is the fault. If they read on/off, the fault is phone-side."
+  echo
+  echo "  Either way: do NOT delete the bridge. The pairing is intact."
 elif [[ "$HUB_SEEN" == "0" ]]; then
   printf '  %sCASE D — bridge healthy; your Apple hub (HomePod) is offline.%s\n\n' "$c_y" "$c_0"
   echo "  Local control from your iPhone on home Wi-Fi should still work."
@@ -204,7 +237,8 @@ elif [[ "$HUB_SEEN" == "0" ]]; then
   echo "  FIX: power-cycle the Bedroom HomePod and confirm its Wi-Fi."
 else
   printf '  %sEVERYTHING TESTABLE FROM HERE IS HEALTHY.%s\n\n' "$c_g" "$c_0"
-  echo "  Bridge running, discoverable, entities alive, HomePod on the network."
+  echo "  Bridge running, discoverable, all lights verified alive via the API,"
+  echo "  HomePod present on the network."
   echo "  If the Home app still shows No Response, it is phone-side cache:"
   echo "    1. toggle iPhone Wi-Fi off/on, reopen Home"
   echo "    2. confirm the phone is on the same SSID as the Pi"
