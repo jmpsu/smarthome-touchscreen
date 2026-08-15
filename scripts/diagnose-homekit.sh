@@ -131,8 +131,65 @@ for e in d:
   else
     hm_ "API rejected the token — cannot check entity health"
   fi
-else
-  hm_ "no HA_TOKEN in .env — cannot check whether the lights are alive"
+fi
+
+# No token? Fall back to Home Assistant's own recorder database, which is on
+# this disk and holds current state. Read-only URI so a live HA writing to it is
+# unaffected. Uses python3's built-in sqlite3 — no extra package to install.
+if [[ "$ENTITIES_OK" == "-1" ]] && [[ -n "$LIVE" ]] && $SUDO test -f "$LIVE/home-assistant_v2.db" 2>/dev/null; then
+  DBTMP="$(mktemp)"; $SUDO cp "$LIVE/home-assistant_v2.db" "$DBTMP" 2>/dev/null || true
+  if [[ -s "$DBTMP" ]]; then
+    OUT="$(python3 - "$DBTMP" <<'PY' 2>/dev/null || true
+import sqlite3, sys
+db = sys.argv[1]
+c = sqlite3.connect(f'file:{db}?mode=ro', uri=True)
+# Modern schema (2023.4+) keeps entity_id in states_meta; older keeps it inline.
+QUERIES = ["""
+SELECT sm.entity_id, s.state FROM states s
+JOIN states_meta sm ON s.metadata_id = sm.metadata_id
+JOIN (SELECT metadata_id, MAX(last_updated_ts) mx FROM states GROUP BY metadata_id) l
+  ON s.metadata_id = l.metadata_id AND s.last_updated_ts = l.mx
+WHERE sm.entity_id LIKE 'light.%'
+""", """
+SELECT s.entity_id, s.state FROM states s
+JOIN (SELECT entity_id, MAX(last_updated_ts) mx FROM states GROUP BY entity_id) l
+  ON s.entity_id = l.entity_id AND s.last_updated_ts = l.mx
+WHERE s.entity_id LIKE 'light.%'
+"""]
+rows = None
+for q in QUERIES:
+    try:
+        rows = list(c.execute(q)); break
+    except Exception:
+        continue
+if not rows:
+    sys.exit(1)
+dead = [(e, s) for e, s in rows if s in ('unavailable', 'unknown')]
+print(f"{len(rows)}|{len(dead)}|" + ",".join(e for e, _ in dead[:10]))
+PY
+)"
+    rm -f "$DBTMP"
+    if [[ -n "$OUT" ]]; then
+      TOT="${OUT%%|*}"; REST="${OUT#*|}"; UNAV="${REST%%|*}"; DEADLIST="${REST#*|}"
+      if [[ "${TOT:-0}" -gt 0 && "${UNAV:-0}" == "0" ]]; then
+        yes_ "all $TOT lights alive per HA's recorder database (no token needed)"
+        ENTITIES_OK=1
+      elif [[ "${TOT:-0}" -gt 0 ]]; then
+        no_ "$UNAV of $TOT lights unavailable per HA's recorder DB   -> CASE C"
+        ENTITIES_OK=0
+        info "HomeKit is NOT the problem. The lights are dead upstream of it."
+        printf '       - %s\n' ${DEADLIST//,/ } 2>/dev/null | head -10
+      fi
+      info "(recorder DB reflects the last recorded state; the live API is"
+      info " authoritative — add HA_TOKEN to .env for a real-time check)"
+    fi
+  else
+    rm -f "$DBTMP"
+  fi
+fi
+
+if [[ "$ENTITIES_OK" == "-1" ]]; then
+  hm_ "could not determine whether the lights are alive"
   info "this is the check that distinguishes 'HomeKit broken' from 'Tuya broken'."
   info "HA UI -> profile -> Security -> Long-lived access tokens -> Create,"
   info "then add HA_TOKEN=<token> to $REPO_DIR/.env"
